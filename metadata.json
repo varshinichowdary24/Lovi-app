@@ -1,0 +1,6 @@
+{
+  "name": "Lovi Works",
+  "description": "A marketplace connecting local service professionals with residential micro-jobs and smart home installations.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
