@@ -51,6 +51,8 @@ export interface Job {
   bids: Bid[];
   assignedWorkerId?: string;
   selectedBidId?: string;
+  clientMarkedCompleted?: boolean;
+  workerMarkedCompleted?: boolean;
 }
 
 export interface Review {

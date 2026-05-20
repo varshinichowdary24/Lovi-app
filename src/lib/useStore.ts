@@ -25,7 +25,7 @@ export function useStore() {
     addJob: store.addJob.bind(store),
     addBid: store.addBid.bind(store),
     acceptBid: store.acceptBid.bind(store),
-    completeJob: store.completeJob.bind(store),
+    markJobCompleted: store.markJobCompleted.bind(store),
     addReview: store.addReview.bind(store),
     setCurrentUser: store.setCurrentUser.bind(store),
   };
