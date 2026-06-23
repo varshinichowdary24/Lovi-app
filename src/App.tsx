@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -17,66 +17,193 @@ import {
   Hammer, 
   Zap, 
   Droplets, 
-  PaintBucket, 
   LayoutDashboard,
   LogOut,
-  ChevronRight,
   Star,
   CheckCircle2,
   TrendingUp,
   Map as MapIcon,
   Camera,
-  Image as ImageIcon,
   ThumbsUp,
   MessageSquare,
-  Clock
+  Clock,
+  ChevronRight,
+  ChevronDown,
+  Home,
+  Bookmark,
+  Mail,
+  Settings,
+  Users,
+  Shield,
+  Activity,
+  Briefcase,
+  ArrowRight,
+  ChevronUp,
+  ChevronLeft,
+  Filter,
+  RefreshCw,
+  Award,
+  Globe,
+  Heart,
+  Share2,
+  MoreHorizontal,
+  AlertCircle,
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
-import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { APIProvider, Map as GoogleMap, AdvancedMarker } from '@vis.gl/react-google-maps';
 
 import { useStore } from './lib/useStore';
 import { cn, formatDate, calculateDistance, formatDistance } from './lib/utils';
-import { Job, JobCategory, User, Bid, Location } from './types';
+import { Job, JobCategory, Bid, Notification, User, Review } from './types';
 import { store } from './lib/store';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
+import { LandingPage } from './components/LandingPage';
+import { Layout } from './components/Layout';
+import { Button, Card } from './components/ui';
+import { Dashboard } from './pages/Dashboard';
+import { MyProjects } from './pages/MyProjects';
+import { Marketplace } from './pages/Marketplace';
+import { Professionals } from './pages/Professionals';
 
-// --- Base Components ---
+const WorkerProfileModal = ({ worker, isOpen, onClose, reviews, users }: {
+  worker: User | null;
+  isOpen: boolean;
+  onClose: () => void;
+  reviews: Review[];
+  users: User[];
+}) => {
+  if (!isOpen || !worker) return null;
 
-const Button = ({ 
-  children, 
-  className, 
-  variant = 'primary', 
-  ...props 
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'outline' | 'ghost' }) => {
-  const variants = {
-    primary: 'bg-sky-500 text-white hover:bg-sky-600',
-    secondary: 'bg-sky-400 text-white hover:bg-sky-500',
-    outline: 'border border-sky-500 text-sky-500 hover:bg-sky-50',
-    ghost: 'hover:bg-sky-50 text-gray-600',
-  };
+  const workerReviews = reviews.filter(r => r.toId === worker.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   return (
-    <button 
-      className={cn(
-        'px-4 py-2 rounded-lg font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2', 
-        variants[variant], 
-        className
-      )} 
-      {...props}
-    >
-      {children}
-    </button>
+    <div className="fixed inset-0 bg-sky-500/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+      >
+        <div className="relative h-32 bg-gradient-to-r from-sky-500 to-sky-400">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-full">
+            <img src={worker.avatar} alt={worker.name} className="w-24 h-24 rounded-full object-cover border-4 border-white" />
+          </div>
+        </div>
+
+        <div className="pt-16 px-8 pb-8 flex-1 overflow-y-auto">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold">{worker.name}</h2>
+                {worker.verified && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
+              </div>
+              <p className="text-gray-500">{worker.email}</p>
+            </div>
+            <div className="text-right">
+              <span className="px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-bold uppercase tracking-wider">
+                {worker.role}
+              </span>
+              <div className="flex items-center gap-1 justify-end mt-2 text-yellow-600 font-bold">
+                <Star className="w-4 h-4 fill-current" />
+                {worker.rating || 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="p-4 bg-gray-50 rounded-xl text-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Completed</p>
+              <p className="font-bold">{worker.completedJobs || 0} Jobs</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl text-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Reviews</p>
+              <p className="font-bold">{workerReviews.length}</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl text-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Status</p>
+              <p className="text-green-600 font-bold">Verified</p>
+            </div>
+          </div>
+
+          {worker.bio && (
+            <div className="mb-8">
+              <h3 className="font-bold mb-2">About</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">{worker.bio}</p>
+            </div>
+          )}
+
+          {worker.skills && worker.skills.length > 0 && (
+            <div className="mb-8">
+              <h3 className="font-bold mb-3">Skills & Expertise</h3>
+              <div className="flex flex-wrap gap-2">
+                {worker.skills.map(skill => (
+                  <span key={skill} className="px-3 py-1 bg-gray-100 rounded-lg text-xs font-medium border border-gray-200">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Customer Reviews */}
+          <div className="pt-6 border-t border-gray-100">
+            <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-500 fill-current" />
+              Customer Reviews ({workerReviews.length})
+            </h3>
+
+            {workerReviews.length === 0 ? (
+              <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium text-sm">No reviews yet for this professional</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {workerReviews.map(review => {
+                  const customer = users.find(u => u.id === review.fromId);
+                  return (
+                    <div key={review.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={customer?.avatar}
+                            alt={customer?.name || 'Customer'}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{customer?.name || 'Anonymous'}</p>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">{customer?.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex text-yellow-500 bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
+                          {[1, 2, 3, 4, 5].map(i => (
+                            <Star key={i} className={cn("w-3.5 h-3.5", i <= review.rating ? "fill-current" : "text-gray-200")} />
+                          ))}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-gray-600 italic leading-relaxed text-sm mb-2">"{review.comment}"</p>
+                      )}
+                      <p className="text-[10px] text-gray-400 font-medium">{formatDate(review.createdAt)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
   );
 };
-
-const Card = ({ children, className, onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
-  <div 
-    className={cn('bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow', className)} 
-    onClick={onClick}
-  >
-    {children}
-  </div>
-);
 
 // --- Modals & Complex Components ---
 
@@ -123,7 +250,7 @@ const ReviewModal = ({ isOpen, onClose, onReview, job }: { isOpen: boolean, onCl
 };
 
 const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
-  const { currentUser, setCurrentUser, users } = useStore();
+  const { currentUser } = useStore();
   
   if (!isOpen || !currentUser) return null;
 
@@ -142,7 +269,7 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
             <X className="w-5 h-5" />
           </button>
           <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-full">
-            <img src={currentUser.avatar} className="w-24 h-24 rounded-full object-cover border-4 border-white" />
+            <img src={currentUser.avatar} alt={currentUser.name} className="w-24 h-24 rounded-full object-cover border-4 border-white" />
           </div>
         </div>
 
@@ -220,12 +347,13 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
   );
 };
 
-const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, userLocation }: { 
+const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, onViewWorkerProfile, userLocation }: { 
   job: Job, 
   onClose: () => void, 
   onAcceptBid: (bid: Bid) => void,
   onBid: (amount: number, message: string) => void,
   onMarkCompleted: (job: Job) => void,
+  onViewWorkerProfile: (worker: User) => void,
   userLocation: { lat: number, lng: number } | null
 }) => {
   const { currentUser, reviews, users } = useStore();
@@ -317,7 +445,7 @@ const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, use
               {job.photos && job.photos.length > 0 && (
                 <div className="grid grid-cols-2 gap-3">
                   {job.photos.map((p, i) => (
-                    <img key={i} src={p} className="w-full h-48 object-cover rounded-2xl shadow-sm hover:shadow-md transition-shadow" />
+                    <img key={i} src={p} alt="Job photo" className="w-full h-48 object-cover rounded-2xl shadow-sm hover:shadow-md transition-shadow" />
                   ))}
                 </div>
               )}
@@ -396,7 +524,7 @@ const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, use
                           <Card className="p-6 bg-gray-50 border-none shadow-sm">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-3">
-                                <img src={fromUser?.avatar} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
+                                <img src={fromUser?.avatar} alt={fromUser?.name || 'User'} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
                                 <div>
                                   <p className="text-sm font-bold">{fromUser?.name}</p>
                                   <p className="text-[10px] text-gray-400 uppercase font-bold">{fromUser?.role}</p>
@@ -447,15 +575,21 @@ const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, use
                           )} onClick={() => setExpandedWorkerId(isExpanded ? null : bid.workerId)}>
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center text-white text-lg font-bold overflow-hidden shadow-sm">
-                                  {worker?.avatar ? <img src={worker.avatar} className="w-full h-full object-cover" /> : bid.workerName.charAt(0)}
+                                <div
+                                  className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center text-white text-lg font-bold overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-sky-300 transition-all"
+                                  onClick={(e) => { e.stopPropagation(); if (worker) onViewWorkerProfile(worker); }}
+                                >
+                                  {worker?.avatar ? <img src={worker.avatar} alt={worker.name} className="w-full h-full object-cover" /> : bid.workerName.charAt(0)}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-bold text-lg">{bid.workerName}</p>
+                                    <p
+                                      className="font-bold text-lg cursor-pointer hover:text-sky-600 transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); if (worker) onViewWorkerProfile(worker); }}
+                                    >{bid.workerName}</p>
                                     {worker?.verified && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
                                   </div>
-                                  <div className="flex items-center gap-1.5 text-yellow-600 font-bold text-sm">
+                                  <div className="flex items-center gap-1.5 text-yellow-600 font-bold text-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); if (worker) onViewWorkerProfile(worker); }}>
                                     <Star className="w-4 h-4 fill-current" />
                                     {worker?.rating || '0.0'}
                                     <span className="text-gray-400 font-medium text-xs ml-1">({workerReviews.length} reviews)</span>
@@ -517,39 +651,39 @@ const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, use
                   Submit your Quotation
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 block ml-1">Your Proposed Price (₹)</label>
-                      <input 
-                        type="number" 
-                        className="w-full p-4 bg-white border border-gray-200 rounded-2xl text-2xl font-black text-sky-600 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all"
-                        value={bidAmount}
-                        onChange={e => setBidAmount(Number(e.target.value))}
-                      />
-                   </div>
-                   <div className="flex items-end">
-                      <Button className="w-full py-4 h-[64px] rounded-2xl shadow-lg shadow-sky-500/20" onClick={() => onBid(bidAmount, bidMessage)}>Send Proposal Now</Button>
-                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700 block ml-1">Your Proposed Price (₹)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-4 bg-white border border-gray-200 rounded-2xl text-2xl font-black text-sky-600 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all"
+                      value={bidAmount}
+                      onChange={e => setBidAmount(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button className="w-full py-4 h-[64px] rounded-2xl shadow-lg shadow-sky-500/20" onClick={() => onBid(bidAmount, bidMessage)}>Send Proposal Now</Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                   <label className="text-sm font-bold text-gray-700 block ml-1">Message to Client</label>
-                   <textarea 
-                     className="w-full p-4 bg-white border border-gray-200 rounded-2xl h-32 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all resize-none"
-                     placeholder="Explain your approach and why you're the best fit for this job..."
-                     value={bidMessage}
-                     onChange={e => setBidMessage(e.target.value)}
-                   />
+                  <label className="text-sm font-bold text-gray-700 block ml-1">Message to Client</label>
+                  <textarea 
+                    className="w-full p-4 bg-white border border-gray-200 rounded-2xl h-32 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all resize-none"
+                    placeholder="Explain your approach and why you're the best fit for this job..."
+                    value={bidMessage}
+                    onChange={e => setBidMessage(e.target.value)}
+                  />
                 </div>
               </Card>
             )}
 
             {isWorker && !isOwner && alreadyBid && (
-               <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-green-200">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 className="w-8 h-8 text-green-500" />
-                  </div>
-                  <h4 className="text-xl font-bold mb-1 text-green-700">Proposal Sent</h4>
-                  <p className="text-sm text-gray-500">You have already submitted a bid for this job. The client will review your quote.</p>
-               </div>
+              <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-green-200">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                </div>
+                <h4 className="text-xl font-bold mb-1 text-green-700">Proposal Sent</h4>
+                <p className="text-sm text-gray-500">You have already submitted a bid for this job. The client will review your quote.</p>
+              </div>
             )}
           </div>
         </div>
@@ -558,57 +692,242 @@ const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, use
   );
 };
 
-const Navbar = ({ onMenuClick, onNotifyClick, onProfileClick, onLogoClick }: { 
+const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
+  const icons: Record<Notification['type'], React.ReactNode> = {
+    new_job: <Bell className="w-5 h-5" />,
+    new_bid: <MessageSquare className="w-5 h-5" />,
+    bid_accepted: <CheckCircle2 className="w-5 h-5" />,
+    new_review: <Star className="w-5 h-5" />,
+    job_completed: <CheckCircle2 className="w-5 h-5" />,
+  };
+  return icons[type] || <Bell className="w-5 h-5" />;
+};
+
+const NotificationPanel = ({ 
+  notifications, 
+  onMarkRead, 
+  onMarkAllRead, 
+  onClose,
+  onNavigate 
+}: { 
+  notifications: Notification[]
+  onMarkRead: (id: string) => void
+  onMarkAllRead: () => void
+  onClose: () => void
+  onNavigate: (jobId: string) => void
+}) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  return (
+    <div 
+      ref={panelRef}
+      className="absolute top-16 right-4 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
+    >
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="font-bold text-lg">Notifications</h3>
+        {notifications.some(n => !n.isRead) && (
+          <button 
+            onClick={onMarkAllRead}
+            className="text-xs font-bold text-sky-500 hover:text-sky-600 uppercase tracking-wider"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      <div className="max-h-96 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center">
+            <Bell className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 font-medium">No notifications yet</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {notifications.map(notification => (
+              <button
+                key={notification.id}
+                onClick={() => {
+                  if (!notification.isRead) onMarkRead(notification.id);
+                  if (notification.relatedJobId) onNavigate(notification.relatedJobId);
+                  onClose();
+                }}
+                className={cn(
+                  "w-full text-left p-4 flex gap-3 hover:bg-gray-50 transition-colors",
+                  !notification.isRead && "bg-sky-50/50"
+                )}
+              >
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                  notification.type === 'new_job' ? "bg-blue-100 text-blue-600" :
+                  notification.type === 'new_bid' ? "bg-green-100 text-green-600" :
+                  notification.type === 'bid_accepted' ? "bg-sky-100 text-sky-600" :
+                  notification.type === 'new_review' ? "bg-yellow-100 text-yellow-600" :
+                  "bg-emerald-100 text-emerald-600"
+                )}>
+                  <NotificationIcon type={notification.type} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={cn("text-sm", !notification.isRead ? "font-bold text-gray-900" : "font-medium text-gray-700")}>
+                      {notification.title}
+                    </p>
+                    {!notification.isRead && (
+                      <div className="w-2 h-2 bg-sky-500 rounded-full flex-shrink-0 mt-1.5" />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">{formatDate(notification.createdAt)}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const Navbar = ({ onMenuClick, onToggleNotifications, onProfileClick, onLogoClick, unreadCount }: { 
   onMenuClick: () => void, 
-  onNotifyClick: () => void, 
+  onToggleNotifications: () => void, 
   onProfileClick: () => void,
-  onLogoClick: () => void 
+  onLogoClick: () => void,
+  unreadCount: number
 }) => {
   const { currentUser } = useStore();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <nav className="h-20 border-b border-gray-200 bg-white flex items-center justify-between px-8 sticky top-0 z-40 shadow-sm">
-      <div className="flex items-center gap-6">
-        <button onClick={onMenuClick} className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors">
-          <Menu className="w-7 h-7 text-gray-600" />
+    <nav className="h-16 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40">
+      <div className="flex items-center gap-4">
+        <button onClick={onMenuClick} className="lg:hidden p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors">
+          <Menu className="w-5 h-5 text-[#64748B]" />
         </button>
         <div 
-          className="flex items-center gap-3 cursor-pointer group" 
+          className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0" 
           onClick={onLogoClick}
         >
-          <div className="rounded-full border border-gray-100 p-1 bg-white shadow-sm overflow-hidden flex items-center justify-center group-hover:scale-110 transition-transform">
-            <img src="https://lovi.life/Favicon.png" alt="Lovi Icon" className="h-7 w-7 object-contain" />
+          <div className="w-7 h-7 rounded-lg bg-[#0EA5E9] flex items-center justify-center shadow-sm shadow-[#0EA5E9]/20 group-hover:scale-105 transition-transform">
+            <Zap className="w-3.5 h-3.5 text-white" fill="currentColor" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-black tracking-tighter text-gray-900">LOVI</span>
-            <span className="text-[10px] bg-sky-100 text-sky-600 px-2 py-0.5 rounded-full uppercase font-black tracking-widest align-middle">Beta</span>
-          </div>
+          <span className="text-lg font-bold text-[#0F172A] tracking-tight hidden sm:inline">Lovi</span>
+        </div>
+
+        {/* Global Search */}
+        <div className="relative hidden md:block w-80 lg:w-96">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search jobs, professionals, or services..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]/20 focus:border-[#0EA5E9] transition-all"
+          />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#94A3B8] bg-white border border-[#E2E8F0] px-1.5 py-0.5 rounded font-mono hidden lg:inline">⌘K</kbd>
         </div>
       </div>
-      
-      <div className="flex items-center gap-4">
-        <button className="p-2.5 hover:bg-gray-100 rounded-xl relative transition-colors" onClick={onNotifyClick}>
-          <Bell className="w-6 h-6 text-gray-500" />
-          <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-sky-500 rounded-full border-2 border-white"></span>
+
+      <div className="flex items-center gap-2">
+        {/* Messages */}
+        <button className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group">
+          <Mail className="w-5 h-5 text-[#64748B] group-hover:text-[#0EA5E9] transition-colors" />
+          <span className="absolute top-1 right-1 w-4 h-4 bg-[#0EA5E9] text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-white">3</span>
         </button>
-        <div className="h-10 w-px bg-gray-200 mx-2 hidden sm:block"></div>
-        <button 
-          onClick={onProfileClick}
-          className="flex items-center gap-4 pl-1 hover:bg-gray-50 p-2 rounded-2xl transition-all text-left group cursor-pointer"
-        >
-          <div className="hidden sm:block text-right">
-            <p className="text-sm font-bold text-gray-900 group-hover:text-sky-600 transition-colors">{currentUser?.name}</p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">{currentUser?.role}</p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-gray-100 border-2 border-gray-100 overflow-hidden group-hover:border-sky-200 transition-all shadow-sm">
-            {currentUser?.avatar ? (
-              <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                <UserIcon className="w-7 h-7" />
-              </div>
+
+        {/* Notifications */}
+        <button className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group" onClick={onToggleNotifications}>
+          <Bell className="w-5 h-5 text-[#64748B] group-hover:text-[#0EA5E9] transition-colors" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-[#F59E0B] text-white text-[8px] font-bold rounded-full flex items-center justify-center px-1 border border-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        <div className="w-px h-6 bg-[#E2E8F0] mx-1" />
+
+        {/* User Menu */}
+        <div className="relative" ref={menuRef}>
+          <button 
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2.5 pl-1 hover:bg-[#F8FAFC] p-1.5 pr-3 rounded-lg transition-all group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0EA5E9] to-[#0284C7] flex items-center justify-center text-white text-xs font-bold shadow-sm">
+              {currentUser?.avatar ? (
+                <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover rounded-lg" />
+              ) : (
+                currentUser?.name?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />
+              )}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-xs font-semibold text-[#0F172A] leading-tight">{currentUser?.name?.split(' ')[0] || 'User'}</p>
+              <p className="text-[9px] text-[#94A3B8] font-medium">{currentUser?.role || 'Member'}</p>
+            </div>
+            <ChevronDown className={cn("w-3.5 h-3.5 text-[#94A3B8] transition-transform", showUserMenu && "rotate-180")} />
+          </button>
+
+          <AnimatePresence>
+            {showUserMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl border border-[#E2E8F0] shadow-xl shadow-[#0F172A]/5 overflow-hidden"
+              >
+                <div className="p-3 border-b border-[#E2E8F0]">
+                  <p className="text-sm font-semibold text-[#0F172A]">{currentUser?.name}</p>
+                  <p className="text-[11px] text-[#64748B]">{currentUser?.email}</p>
+                </div>
+                <div className="p-1.5">
+                  {[
+                    { icon: UserIcon, label: 'Profile', onClick: () => onProfileClick() },
+                    { icon: Settings, label: 'Settings', onClick: () => {} },
+                    { icon: Award, label: 'Badges & Achievements', onClick: () => {} },
+                  ].map((item, i) => (
+                    <motion.button
+                      key={item.label}
+                      whileHover={{ x: 2 }}
+                      onClick={() => { item.onClick(); setShowUserMenu(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors"
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </motion.button>
+                  ))}
+                </div>
+                <div className="p-1.5 border-t border-[#E2E8F0]">
+                  <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors">
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              </motion.div>
             )}
-          </div>
-        </button>
+          </AnimatePresence>
+        </div>
       </div>
     </nav>
   );
@@ -623,14 +942,27 @@ const Sidebar = ({ isOpen, onClose, onRefresh }: {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const menuItems = [
-    { id: 'feed', label: 'Job Marketplace', icon: LayoutDashboard, roles: ['Client', 'Worker', 'Admin'], path: '/' },
-    { id: 'radar', label: 'Maps', icon: MapIcon, roles: ['Client', 'Worker'], path: '/radar' },
-    { id: 'my-jobs', label: 'My Projects', icon: Wrench, roles: ['Client', 'Worker'], path: '/my-jobs' },
-    { id: 'analytics', label: 'Admin Panel', icon: TrendingUp, roles: ['Admin'], path: '/analytics' },
+  const mainItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['Client', 'Worker', 'Admin'], path: '/dashboard' },
+    { id: 'marketplace', label: 'Marketplace', icon: Search, roles: ['Client', 'Worker', 'Admin'], path: '/marketplace' },
+    { id: 'my-jobs', label: 'My Projects', icon: Briefcase, roles: ['Client', 'Worker', 'Admin'], path: '/my-jobs' },
+    { id: 'saved', label: 'Saved Professionals', icon: Bookmark, roles: ['Client'], path: '/saved' },
+    { id: 'nearby', label: 'Nearby Experts', icon: MapPin, roles: ['Client', 'Worker'], path: '/nearby' },
   ];
 
-  const filteredMenu = menuItems.filter(item => item.roles.includes(currentUser?.role || ''));
+  const supportItems = [
+    { id: 'messages', label: 'Messages', icon: Mail, roles: ['Client', 'Worker', 'Admin'], path: '/messages' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, roles: ['Client', 'Worker', 'Admin'], path: '/notifications' },
+    { id: 'settings', label: 'Settings', icon: Settings, roles: ['Client', 'Worker', 'Admin'], path: '/settings' },
+  ];
+
+  const filteredMain = mainItems.filter(item => item.roles.includes(currentUser?.role || ''));
+  const filteredSupport = supportItems.filter(item => item.roles.includes(currentUser?.role || ''));
+
+  const isActive = (path: string) => {
+    if (path === '/dashboard') return location.pathname === '/dashboard';
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <>
@@ -641,55 +973,111 @@ const Sidebar = ({ isOpen, onClose, onRefresh }: {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-sky-900/40 backdrop-blur-sm z-50 lg:hidden"
+            className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm z-50 lg:hidden"
           />
         )}
       </AnimatePresence>
       <aside className={cn(
-        "fixed inset-y-0 left-0 w-72 bg-white border-r border-gray-100 z-50 transition-transform duration-500 ease-in-out lg:translate-x-0 lg:static lg:block",
+        "fixed inset-y-0 left-0 w-[260px] bg-white border-r border-[#E2E8F0] z-50 transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:block flex flex-col",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="h-full flex flex-col p-8">
-          <div className="flex items-center justify-between lg:hidden mb-10">
-            <span className="font-black text-xl tracking-tight">MENU</span>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-6 h-6" /></button>
+        {/* Logo */}
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-[#E2E8F0] flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#0EA5E9] flex items-center justify-center shadow-lg shadow-[#0EA5E9]/20">
+            <Zap className="w-4 h-4 text-white" fill="currentColor" />
           </div>
+          <span className="text-lg font-bold text-[#0F172A] tracking-tight">Lovi</span>
+          <span className="text-[9px] font-bold text-[#0EA5E9] bg-[#0EA5E9]/10 px-2 py-0.5 rounded-full ml-auto">BETA</span>
+        </div>
 
-          <div className="space-y-2">
-            {filteredMenu.map(item => (
-              <button
-                key={item.id}
-                onClick={() => { navigate(item.path); onClose(); }}
+        {/* Main Navigation */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          <p className="px-3 mb-2 text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Main</p>
+          {filteredMain.map(item => (
+            <motion.button
+              key={item.id}
+              whileHover={{ x: 2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { navigate(item.path); onClose(); }}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium group relative",
+                isActive(item.path)
+                  ? "bg-[#0EA5E9]/10 text-[#0EA5E9]" 
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              )}
+            >
+              {isActive(item.path) && (
+                <motion.div layoutId="sidebar-indicator" className="absolute left-0 w-1 h-5 bg-[#0EA5E9] rounded-r-full" />
+              )}
+              <item.icon className={cn("w-4.5 h-4.5", isActive(item.path) ? "text-[#0EA5E9]" : "text-[#94A3B8] group-hover:text-[#0EA5E9]")} />
+              <span>{item.label}</span>
+              {item.id === 'messages' && (
+                <span className="ml-auto w-5 h-5 bg-[#0EA5E9] text-white text-[9px] font-bold rounded-full flex items-center justify-center">3</span>
+              )}
+            </motion.button>
+          ))}
+
+          <div className="my-4 border-t border-[#E2E8F0]" />
+
+          <p className="px-3 mb-2 text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Support</p>
+          {filteredSupport.map(item => (
+            <motion.button
+              key={item.id}
+              whileHover={{ x: 2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { navigate(item.path); onClose(); }}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium group",
+                isActive(item.path)
+                  ? "bg-[#0EA5E9]/10 text-[#0EA5E9]" 
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              )}
+            >
+              <item.icon className={cn("w-4.5 h-4.5", isActive(item.path) ? "text-[#0EA5E9]" : "text-[#94A3B8] group-hover:text-[#0EA5E9]")} />
+              <span>{item.label}</span>
+            </motion.button>
+          ))}
+
+          {currentUser?.role === 'Admin' && (
+            <>
+              <div className="my-4 border-t border-[#E2E8F0]" />
+              <p className="px-3 mb-2 text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Admin</p>
+              <motion.button
+                whileHover={{ x: 2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => { navigate('/analytics'); onClose(); }}
                 className={cn(
-                  "w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold",
-                  location.pathname === item.path 
-                    ? "bg-sky-500 text-white shadow-xl shadow-sky-500/30" 
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium group",
+                  location.pathname === '/analytics'
+                    ? "bg-[#0EA5E9]/10 text-[#0EA5E9]" 
+                    : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
                 )}
               >
-                <item.icon className={cn("w-6 h-6", location.pathname === item.path ? "text-white" : "text-sky-500")} />
-                {item.label}
-              </button>
-            ))}
-            
-            <button
-              onClick={() => { onRefresh(); onClose(); }}
-              className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-            >
-              <Bell className="w-6 h-6 text-sky-500" />
-              Sync Data
+                {location.pathname === '/analytics' && (
+                  <motion.div layoutId="sidebar-indicator" className="absolute left-0 w-1 h-5 bg-[#0EA5E9] rounded-r-full" />
+                )}
+                <Shield className={cn("w-4.5 h-4.5", location.pathname === '/analytics' ? "text-[#0EA5E9]" : "text-[#94A3B8] group-hover:text-[#0EA5E9]")} />
+                <span>Admin Panel</span>
+              </motion.button>
+            </>
+          )}
+        </div>
+
+        {/* Bottom Section */}
+        <div className="p-4 border-t border-[#E2E8F0] flex-shrink-0">
+          <div className="p-4 bg-gradient-to-br from-[#0EA5E9]/5 to-[#0EA5E9]/10 rounded-xl border border-[#0EA5E9]/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-[#0EA5E9] flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[#0F172A]">Need help?</p>
+                <p className="text-[9px] text-[#64748B]">We're here 24/7</p>
+              </div>
+            </div>
+            <button className="w-full py-2 bg-white text-[11px] font-bold text-[#0EA5E9] rounded-lg border border-[#0EA5E9]/20 hover:bg-[#0EA5E9]/5 transition-colors">
+              Contact Support
             </button>
-          </div>
-          
-          <div className="mt-auto">
-            <Card className="p-6 bg-sky-50 border-sky-100 border shadow-none rounded-3xl">
-               <div className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-sky-500/20">
-                 <MessageSquare className="w-5 h-5 text-white" />
-               </div>
-               <p className="text-sm font-bold text-sky-900 mb-1">Lovi Support</p>
-               <p className="text-[10px] text-sky-500 font-bold uppercase tracking-wider mb-4">24/7 Concierge</p>
-               <Button variant="ghost" className="w-full text-xs font-black uppercase tracking-widest text-sky-600 bg-white hover:bg-sky-100 rounded-xl py-3 border border-sky-200/50">Contact Us</Button>
-            </Card>
           </div>
         </div>
       </aside>
@@ -701,11 +1089,13 @@ const JobDetailsRoute = ({
   onAcceptBid, 
   onBid, 
   onMarkCompleted, 
+  onViewWorkerProfile,
   userLocation 
 }: { 
   onAcceptBid: (jobId: string, bid: Bid) => void,
   onBid: (jobId: string, amount: number, message: string) => void,
   onMarkCompleted: (job: Job) => void,
+  onViewWorkerProfile: (worker: User) => void,
   userLocation: { lat: number, lng: number } | null
 }) => {
   const { id } = useParams<{ id: string }>();
@@ -724,12 +1114,21 @@ const JobDetailsRoute = ({
       onAcceptBid={(bid) => onAcceptBid(job.id, bid)}
       onBid={(amount, message) => onBid(job.id, amount, message)}
       onMarkCompleted={onMarkCompleted}
+      onViewWorkerProfile={onViewWorkerProfile}
       userLocation={userLocation}
     />
   );
 };
 
 // --- Page Fragments ---
+
+const categoryIcons: Record<string, React.ElementType> = {
+  Electrical: Zap,
+  Plumbing: Droplets,
+  Carpentry: Hammer,
+  'Smart Home': Camera,
+  Other: Wrench,
+};
 
 const JobFeed = ({ jobs, userLocation }: { 
   jobs: Job[], 
@@ -757,19 +1156,19 @@ const JobFeed = ({ jobs, userLocation }: {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
           <input 
             type="text" 
-            placeholder="Search micro-jobs near you..." 
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition-all"
+            placeholder="Search jobs..." 
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]/20 focus:border-[#0EA5E9] transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <select 
-          className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none"
+          className="px-4 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]/20 focus:border-[#0EA5E9] transition-all"
           value={category}
           onChange={(e) => setCategory(e.target.value as any)}
         >
@@ -783,95 +1182,113 @@ const JobFeed = ({ jobs, userLocation }: {
       </div>
 
       {filteredJobs.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-[32px] border-2 border-dashed border-gray-100">
-          <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-gray-900">No jobs found nearby</h3>
-          <p className="text-gray-500 max-w-xs mx-auto mt-2 mb-6">We couldn't find any active jobs within a 100km radius of your location.</p>
+        <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+          <div className="w-14 h-14 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-4">
+            <MapPin className="w-7 h-7 text-[#CBD5E1]" />
+          </div>
+          <h3 className="text-lg font-bold text-[#0F172A]">No jobs found nearby</h3>
+          <p className="text-sm text-[#64748B] max-w-xs mx-auto mt-1 mb-5">We couldn't find any active jobs within 100km of your location.</p>
           <Button variant="outline" onClick={() => setShowAll(true)}>View All Available Jobs</Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredJobs.map(job => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredJobs.map((job, idx) => {
             const isOwner = job.clientId === currentUser?.id;
             const distance = userLocation && job.location 
               ? calculateDistance(userLocation.lat, userLocation.lng, job.location.lat, job.location.lng)
               : null;
+            const CatIcon = categoryIcons[job.category] || Wrench;
 
             return (
-              <motion.div layout key={job.id}>
-                <Card className="h-full flex flex-col group hover:border-sky-500 transition-colors">
-                  <div className="p-5 flex-1 space-y-4" onClick={() => navigate(`/job/${job.id}`)}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex flex-col gap-2">
-                        <div className={cn(
-                          "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider self-start",
-                          job.urgency === 'High' ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
-                        )}>
-                          {job.urgency} Urgency
+              <motion.div
+                key={job.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+              >
+                <Card className="h-full flex flex-col group border border-[#E2E8F0] hover:border-[#0EA5E9]/30 hover:shadow-lg hover:shadow-[#0EA5E9]/5 transition-all rounded-xl overflow-hidden">
+                  {/* Top Accent */}
+                  <div className="h-1 bg-gradient-to-r from-[#0EA5E9]/0 via-[#0EA5E9]/20 to-[#0EA5E9]/0 group-hover:from-[#0EA5E9]/40 group-hover:via-[#0EA5E9]/60 group-hover:to-[#0EA5E9]/40 transition-all" />
+
+                  <div className="p-5 flex-1" onClick={() => navigate(`/job/${job.id}`)}>
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-[#0EA5E9]/10 flex items-center justify-center flex-shrink-0">
+                          <CatIcon className="w-4.5 h-4.5 text-[#0EA5E9]" />
                         </div>
-                        {distance !== null && (
-                          <div className="px-2 py-1 bg-sky-50 text-sky-600 rounded text-[10px] font-bold uppercase tracking-wider self-start flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {formatDistance(distance)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <span className="text-lg font-bold block">₹{job.budget}</span>
-                        {job.bids.length > 0 && (
-                          <span className="text-[10px] font-bold text-sky-500 flex items-center justify-end gap-1">
-                            <MessageSquare className="w-3 h-3" />
-                            {job.bids.length} bids
+                        <div>
+                          <span className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                            job.urgency === 'High' ? "bg-red-50 text-red-500" : "bg-[#F59E0B]/10 text-[#F59E0B]"
+                          )}>
+                            {job.urgency === 'High' ? 'Urgent' : 'Standard'}
                           </span>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {distance !== null && (
+                              <span className="text-[10px] text-[#64748B] flex items-center gap-0.5">
+                                <MapPin className="w-3 h-3 text-[#0EA5E9]" />
+                                {formatDistance(distance)}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[#94A3B8]">• {job.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-lg font-bold text-[#0F172A] leading-none">₹{job.budget.toLocaleString()}</p>
+                        {job.bids.length > 0 && (
+                          <p className="text-[10px] font-semibold text-[#0EA5E9] mt-0.5">{job.bids.length} bid{job.bids.length > 1 ? 's' : ''}</p>
                         )}
                       </div>
                     </div>
-                    
-                    <div>
-                      <h3 className="text-lg font-bold leading-tight mb-1 group-hover:text-sky-600 transition-colors">{job.title}</h3>
-                      <p className="text-sm text-gray-600 line-clamp-2">{job.description}</p>
+
+                    {/* Title & Description */}
+                    <h3 className="text-base font-bold text-[#0F172A] mb-1 group-hover:text-[#0EA5E9] transition-colors leading-snug">{job.title}</h3>
+                    <p className="text-sm text-[#64748B] leading-relaxed line-clamp-2">{job.description}</p>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      <span className="text-[10px] font-medium text-[#64748B] bg-[#F8FAFC] px-2 py-1 rounded-md border border-[#E2E8F0]">
+                        {job.location?.address?.split(',')[0] || 'Remote'}
+                      </span>
+                      <span className="text-[10px] font-medium text-[#64748B] bg-[#F8FAFC] px-2 py-1 rounded-md border border-[#E2E8F0]">
+                        Posted {formatDate(job.createdAt)}
+                      </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                        <MapPin className="w-3 h-3 text-sky-500" />
-                        {job.location?.address || 'Location N/A'}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                        <Wrench className="w-3 h-3 text-sky-500" />
-                        {job.category}
-                      </div>
-                    </div>
-
-                    {/* Owner Quick Bid Preview in Feed */}
+                    {/* Owner Proposals Preview */}
                     {isOwner && job.bids.length > 0 && (
-                      <div className="pt-2 space-y-2">
-                         <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Recent Proposals</p>
-                         {job.bids.slice().reverse().slice(0, 2).map(bid => (
-                           <div key={bid.id} className="flex justify-between items-center text-[10px] bg-sky-50/50 p-2 rounded-lg border border-sky-100">
-                             <span className="font-bold truncate">{bid.workerName}</span>
-                             <span className="font-black text-sky-600">₹{bid.amount}</span>
-                           </div>
-                         ))}
+                      <div className="mt-4 pt-3 border-t border-[#E2E8F0] space-y-1.5">
+                        <p className="text-[9px] font-bold text-[#94A3B8] uppercase tracking-wider">Recent Proposals</p>
+                        {job.bids.slice().reverse().slice(0, 2).map(bid => (
+                          <div key={bid.id} className="flex justify-between items-center text-[10px] bg-[#0EA5E9]/5 px-3 py-2 rounded-lg border border-[#0EA5E9]/10">
+                            <span className="font-semibold text-[#0F172A] truncate">{bid.workerName}</span>
+                            <span className="font-bold text-[#0EA5E9]">₹{bid.amount.toLocaleString()}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
 
-                  <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                    <div className="text-xs text-gray-400 font-medium">
-                      Posted {formatDate(job.createdAt)}
+                  {/* Footer */}
+                  <div className="px-5 py-3 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] text-[#94A3B8]">
+                      <Clock className="w-3 h-3" />
+                      {job.status === 'Open' ? 'Accepting bids' : 'In review'}
                     </div>
                     <div className="flex gap-2">
-                      <Button className="text-xs py-1.5 h-auto font-bold uppercase tracking-wider" variant="ghost" onClick={() => navigate(`/job/${job.id}`)}>
-                        {isOwner ? 'Manage Bids' : 'Details'}
+                      <Button className="text-[10px] py-1.5 h-auto font-semibold px-3" variant="ghost" onClick={() => navigate(`/job/${job.id}`)}>
+                        {isOwner ? 'Manage' : 'View Details'}
                       </Button>
                       {currentUser?.role === 'Worker' && (job.status === 'Open' || job.status === 'Bidding') && (
                         <Button 
-                          className="text-xs py-1.5 h-auto font-bold uppercase tracking-wider" 
+                          className="text-[10px] py-1.5 h-auto font-semibold px-3" 
                           variant="secondary"
                           onClick={() => navigate(`/job/${job.id}`)}
                         >
-                          Send Bid
+                          Submit Bid
                         </Button>
                       )}
                     </div>
@@ -991,26 +1408,26 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
             <div className="space-y-4">
               <label className="block text-sm font-bold mb-2">Upload Photos</label>
               <div className="grid grid-cols-2 gap-4">
-                 {formData.photos.map((p, i) => (
-                    <div key={i} className="aspect-square bg-gray-100 rounded-xl overflow-hidden relative group">
-                       <img src={p} className="w-full h-full object-cover" />
+                {formData.photos.map((p, i) => (
+                  <div key={i} className="aspect-square bg-gray-100 rounded-xl overflow-hidden relative group">
+                    <img src={p} alt="Uploaded photo" className="w-full h-full object-cover" />
                        <button 
-                        onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                        className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                       >
-                         <X className="w-4 h-4" />
-                       </button>
-                    </div>
-                 ))}
-                 {formData.photos.length < 4 && (
-                    <button 
-                      onClick={simulatePhotoUpload}
-                      className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-sky-500 transition-colors"
+                         onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
+                      className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <Camera className="w-6 h-6 text-gray-400" />
-                      <span className="text-[10px] font-bold uppercase text-gray-400">Add Photo</span>
+                      <X className="w-4 h-4" />
                     </button>
-                 )}
+                  </div>
+                ))}
+                {formData.photos.length < 4 && (
+                  <button 
+                    onClick={simulatePhotoUpload}
+                    className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-sky-500 transition-colors"
+                  >
+                    <Camera className="w-6 h-6 text-gray-400" />
+                    <span className="text-[10px] font-bold uppercase text-gray-400">Add Photo</span>
+                  </button>
+                )}
               </div>
               <p className="text-[10px] text-gray-400">Upload up to 4 photos to help workers quote accurately.</p>
             </div>
@@ -1072,27 +1489,45 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
 // --- Main Application ---
 
 export default function App() {
-  const { jobs, users, reviews, currentUser, addJob, addBid, acceptBid, markJobCompleted, addReview } = useStore();
+  const { jobs, users, reviews, currentUser, notifications, unreadCount, addJob, addBid, acceptBid, markJobCompleted, addReview, markNotificationRead, markAllNotificationsRead } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
+  const [_showPostModal, setShowPostModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [jobToReview, setJobToReview] = useState<Job | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showWorkerProfile, setShowWorkerProfile] = useState(false);
+  const [selectedWorker, setSelectedWorker] = useState<User | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [, setInitError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   const performInit = async () => {
     setInitError(null);
     setIsInitializing(true);
+    
+    // Safety timeout: force loading to false after 4 seconds
+    const timeout = setTimeout(() => {
+      console.warn('Initialization timed out, forcing UI to load');
+      setIsInitializing(false);
+    }, 4000);
+
     try {
+      // If store is already initialized, we can skip the wait
+      if ((store as any).initialized) {
+        setIsInitializing(false);
+        clearTimeout(timeout);
+        return;
+      }
       await store.load();
     } catch (err: any) {
       console.error('Initialization error:', err);
       setInitError(err.message || 'Connection failed.');
     } finally {
+      clearTimeout(timeout);
       setIsInitializing(false);
     }
   };
@@ -1108,9 +1543,7 @@ export default function App() {
         },
         (error) => {
           console.error('Error getting location:', error);
-          if (!userLocation) {
-            setUserLocation({ lat: 12.9716, lng: 77.5946 });
-          }
+          setUserLocation(prev => prev || { lat: 12.9716, lng: 77.5946 });
         },
         { enableHighAccuracy: true }
       );
@@ -1152,10 +1585,14 @@ export default function App() {
   }, [currentUser, users]);
 
   useEffect(() => {
-    if (!currentUser && jobs.length === 0) {
-      performInit();
-    }
+    performInit();
   }, []);
+
+  useEffect(() => {
+    if (currentUser && (location.pathname === '/' || location.pathname === '/auth')) {
+      navigate('/marketplace', { replace: true });
+    }
+  }, [currentUser, location.pathname, navigate]);
 
   const MAP_KEY = (import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY || (import.meta.env as any).GOOGLE_MAPS_PLATFORM_KEY || '')
     .replace('PASTE_YOUR_GOOGLE_MAPS_KEY_HERE', '');
@@ -1165,19 +1602,26 @@ export default function App() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-6 max-w-xs text-center">
           <div className="w-20 h-20 bg-sky-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-sky-500/30 animate-pulse">
-            <img src="https://lovi.life/Favicon.png" alt="Lovi Icon" className="h-10 w-10 brightness-0 invert" />
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Icon" className="h-10 w-10 brightness-0 invert" />
           </div>
           <p className="text-gray-500 font-bold animate-pulse tracking-widest uppercase text-xs">Initializing Lovi...</p>
-        </div>
       </div>
-    );
-  }
+    </div>
+  );
+};
+
+
+
 
   if (!currentUser) {
     return (
       <>
         <Toaster position="bottom-right" />
-        <Auth />
+        <Routes>
+          <Route path="/" element={<LandingPage onGetStarted={() => navigate('/auth')} />} />
+          <Route path="/auth" element={<Auth onBack={() => navigate('/')} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
       </>
     );
   }
@@ -1281,75 +1725,67 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <Toaster position="bottom-right" />
-      <Navbar 
-        onMenuClick={() => setIsSidebarOpen(true)} 
-        onNotifyClick={() => toast('No new notifications')} 
-        onProfileClick={() => setShowProfileModal(true)}
-        onLogoClick={() => {
-          navigate('/');
-          setShowPostModal(false);
-        }}
-      />
-      
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)} 
-          onRefresh={handleRefresh}
+    <Layout>
+      {showNotifications && (
+        <NotificationPanel 
+          notifications={notifications}
+          onMarkRead={markNotificationRead}
+          onMarkAllRead={markAllNotificationsRead}
+          onClose={() => setShowNotifications(false)}
+          onNavigate={(jobId) => navigate(`/job/${jobId}`)}
         />
-        
-        <main className="flex-1 overflow-y-auto p-6 lg:p-10">
-          <AnimatePresence mode="wait">
-            <Routes location={location}>
-              <Route path="/post-job" element={
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <PostJobWizard onPost={handlePostJob} />
-                  <div className="max-w-xl mx-auto px-6">
-                    <Button variant="ghost" onClick={() => navigate('/')} className="w-full">Cancel</Button>
+      )}
+      <AnimatePresence mode="wait">
+        <Routes location={location}>
+          <Route path="/post-job" element={
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <PostJobWizard onPost={handlePostJob} />
+              <div className="max-w-xl mx-auto px-6">
+                <Button variant="ghost" onClick={() => navigate('/')} className="w-full">Cancel</Button>
+              </div>
+            </motion.div>
+          } />
+          
+          <Route path="*" element={
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto h-full"
+            >
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+                      {location.pathname === '/dashboard' && "Dashboard"}
+                      {location.pathname === '/marketplace' && "Marketplace"}
+                      {location.pathname === '/radar' && "Maps"}
+                      {location.pathname === '/my-jobs' && "My Project Portfolio"}
+                      {location.pathname === '/analytics' && "Platform Insights"}
+                    </h1>
+                    <p className="text-gray-500 font-medium">
+                      {location.pathname === '/dashboard' && "Welcome back! Here's your business overview."}
+                      {location.pathname === '/marketplace' && "Connect with top-rated local professionals for any task."}
+                      {location.pathname === '/radar' && "Scanning for micro-jobs in your area."}
+                      {location.pathname === '/my-jobs' && "Manage your active contracts and work history."}
+                      {location.pathname === '/analytics' && "Comprehensive overview of Lovi system performance."}
+                    </p>
                   </div>
-                </motion.div>
-              } />
-              
-              <Route path="*" element={
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="max-w-7xl mx-auto h-full"
-                >
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-                        {location.pathname === '/' && "Marketplace Feed"}
-                        {location.pathname === '/radar' && "Maps"}
-                        {location.pathname === '/my-jobs' && "My Project Portfolio"}
-                        {location.pathname === '/analytics' && "Platform Insights"}
-                      </h1>
-                      <p className="text-gray-500 font-medium">
-                        {location.pathname === '/' && "Connect with top-rated local professionals for any task."}
-                        {location.pathname === '/radar' && "Scanning for micro-jobs in your area."}
-                        {location.pathname === '/my-jobs' && "Manage your active contracts and work history."}
-                        {location.pathname === '/analytics' && "Comprehensive overview of Lovi system performance."}
-                      </p>
-                    </div>
-                    
-                    {currentUser?.role === 'Client' && location.pathname !== '/analytics' && (
-                      <Button 
-                        variant="secondary" 
-                        onClick={() => navigate('/post-job')}
-                        className="flex items-center gap-2 py-3 px-6 shadow-lg shadow-sky-500/20"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Post a New Job
-                      </Button>
-                    )}
-                  </div>
+                  
+                  {currentUser?.role === 'Client' && location.pathname !== '/analytics' && location.pathname !== '/dashboard' && (
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => navigate('/post-job')}
+                      className="flex items-center gap-2 py-3 px-6 shadow-lg shadow-sky-500/20"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Post a New Job
+                    </Button>
+                  )}
+                </div>
 
                   <AnimatePresence>
                     {jobToReview && (
@@ -1366,6 +1802,15 @@ export default function App() {
                         onClose={() => setShowProfileModal(false)} 
                       />
                     )}
+                    {showWorkerProfile && (
+                      <WorkerProfileModal
+                        worker={selectedWorker}
+                        isOpen={showWorkerProfile}
+                        onClose={() => setShowWorkerProfile(false)}
+                        reviews={reviews}
+                        users={users}
+                      />
+                    )}
                   </AnimatePresence>
 
                   <Routes>
@@ -1374,111 +1819,17 @@ export default function App() {
                         onAcceptBid={handleAcceptBid}
                         onBid={handleBid}
                         onMarkCompleted={handleMarkCompleted}
+                        onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }}
                         userLocation={userLocation}
                       />
                     } />
-                    <Route path="/" element={
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2">
-                          <JobFeed 
-                            jobs={jobs.filter(j => {
-                              if (!userLocation) return true;
-                              const distance = calculateDistance(userLocation.lat, userLocation.lng, j.location.lat, j.location.lng);
-                              return distance <= 100;
-                            })} 
-                            userLocation={userLocation}
-                          />
-                        </div>
-                        <div className="hidden lg:block space-y-6">
-                          <div className="sticky top-24">
-                            <Card className="h-[400px] bg-gray-100 relative group overflow-hidden border-2 border-white rounded-[32px] shadow-xl">
-                              {MAP_KEY ? (
-                                <APIProvider apiKey={MAP_KEY}>
-                                  <GoogleMap
-                                    center={userLocation || { lat: 12.9716, lng: 77.5946 }}
-                                    defaultZoom={11}
-                                    mapId="lovi_map"
-                                    style={{ width: '100%', height: '100%' }}
-                                  >
-                                    {userLocation && (
-                                      <AdvancedMarker position={{ lat: userLocation.lat, lng: userLocation.lng }} title="You">
-                                        <div className="w-10 h-10 bg-sky-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center animate-bounce z-50">
-                                          {currentUser?.role === 'Worker' ? (
-                                            <Hammer className="w-5 h-5 text-white" />
-                                          ) : (
-                                            <UserIcon className="w-5 h-5 text-white" />
-                                          )}
-                                        </div>
-                                      </AdvancedMarker>
-                                    )}
-                                    {jobs
-                                      .filter(j => {
-                                        if (!userLocation) return true;
-                                        const distance = calculateDistance(userLocation.lat, userLocation.lng, j.location.lat, j.location.lng);
-                                        return distance <= 100 && (j.status === 'Open' || j.status === 'Bidding');
-                                      })
-                                      .map(j => (
-                                        <AdvancedMarker key={j.id} position={{ lat: j.location.lat, lng: j.location.lng }} onClick={() => navigate(`/job/${j.id}`)}>
-                                          <div className="w-8 h-8 bg-emerald-500 rounded-lg shadow-lg flex items-center justify-center border-2 border-white hover:scale-110 transition-transform cursor-pointer">
-                                            <Wrench className="w-4 h-4 text-white" />
-                                          </div>
-                                        </AdvancedMarker>
-                                      ))}
-                                  </GoogleMap>
-                                </APIProvider>
-                              ) : (
-                                <div className="h-full flex items-center justify-center p-8 text-center bg-white/50 backdrop-blur-sm">
-                                  <div className="max-w-[200px]">
-                                    <div className="w-16 h-16 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                      <MapIcon className="w-8 h-8 text-sky-500" />
-                                    </div>
-                                    <p className="text-sm text-gray-900 font-bold mb-1">Interactive Map</p>
-                                    <p className="text-[10px] text-gray-500 font-medium leading-relaxed">Add your Google Maps API Key to VITE_GOOGLE_MAPS_PLATFORM_KEY in .env to enable the radar.</p>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="absolute top-4 left-4 right-4 bg-white/90 backdrop-blur p-3 rounded-2xl border border-gray-100 z-10 shadow-sm">
-                                <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-sky-600">
-                                  <MapPin className="w-3 h-3" />
-                                  Marketplace (100km Radius)
-                                </p>
-                              </div>
-                            </Card>
-                            
-                            <div className="mt-8">
-                              <div className="flex items-center justify-between mb-6">
-                                <h3 className="font-black text-lg flex items-center gap-2 text-gray-900">
-                                  <Star className="w-6 h-6 text-yellow-500 fill-current" />
-                                  Top Professionals
-                                </h3>
-                                <Button variant="ghost" className="text-[10px] font-black uppercase tracking-widest p-0 text-sky-500">Explore All</Button>
-                              </div>
-                              <div className="space-y-4">
-                                {store.getUsers().filter(u => u.role === 'Worker').slice(0, 3).map(u => (
-                                  <div key={u.id}>
-                                    <Card className="p-4 border-none shadow-sm bg-white hover:shadow-md transition-all cursor-pointer">
-                                      <div className="flex items-center gap-4">
-                                        <img src={u.avatar} className="w-12 h-12 rounded-2xl object-cover border-2 border-gray-50 shadow-sm" />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-bold flex items-center gap-2 truncate text-gray-900">
-                                            {u.name}
-                                            {u.verified && <CheckCircle2 className="w-3 h-3 text-blue-500" />}
-                                          </p>
-                                          <p className="text-[10px] text-gray-400 font-bold uppercase truncate tracking-wider">{u.skills?.slice(0, 2).join(' • ')}</p>
-                                        </div>
-                                        <div className="text-xs font-black flex items-center gap-1.5 text-yellow-600 bg-yellow-50 px-2 py-1 rounded-lg">
-                                          <Star className="w-3 h-3 fill-current" />
-                                          {u.rating}
-                                        </div>
-                                      </div>
-                                    </Card>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/marketplace" element={
+                      <Marketplace
+                        userLocation={userLocation}
+                        onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }}
+                      />
                     } />
 
                     <Route path="/radar" element={
@@ -1543,96 +1894,7 @@ export default function App() {
                       </div>
                     } />
 
-                    <Route path="/my-jobs" element={
-                      <div className="space-y-6">
-                        {jobs.filter(j => currentUser?.role === 'Worker' ? j.assignedWorkerId === currentUser?.id : j.clientId === currentUser?.id).length === 0 ? (
-                          <div className="text-center py-24 bg-white rounded-[40px] border-4 border-dashed border-gray-100">
-                            <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                              <Wrench className="w-10 h-10 text-gray-300" />
-                            </div>
-                            <h3 className="text-2xl font-black text-gray-900">Your portfolio is empty</h3>
-                            <p className="text-gray-500 max-sm mx-auto mt-2">Start by posting a new job or browsing the marketplace for opportunities.</p>
-                          </div>
-                        ) : (
-                          <div className="grid gap-6">
-                            {jobs.filter(j => currentUser?.role === 'Worker' ? j.assignedWorkerId === currentUser?.id : j.clientId === currentUser?.id).map(job => (
-                              <div key={job.id}>
-                                <Card className="p-8 border-none shadow-sm hover:shadow-xl transition-all group">
-                                <div className="flex flex-col md:flex-row gap-8">
-                                  {job.photos && job.photos.length > 0 && (
-                                    <div className="w-full md:w-48 h-48 flex-shrink-0 rounded-[32px] overflow-hidden shadow-lg">
-                                      <img src={job.photos[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                    </div>
-                                  )}
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-4">
-                                      <span className={cn(
-                                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                                        job.status === 'Open' ? "bg-green-100 text-green-700" : 
-                                        job.status === 'Bidding' ? "bg-sky-100 text-sky-700" : 
-                                        job.status === 'In Progress' ? "bg-blue-100 text-blue-700" :
-                                        "bg-gray-100 text-gray-700"
-                                      )}>
-                                        {job.status}
-                                      </span>
-                                      <span className="text-[10px] text-gray-300 font-black uppercase tracking-widest">Job ID: {job.id.slice(0, 8)}</span>
-                                    </div>
-                                    <h3 className="text-2xl font-black mb-3 text-gray-900 leading-tight">{job.title}</h3>
-                                    <p className="text-gray-500 text-sm mb-6 leading-relaxed line-clamp-2">{job.description}</p>
-                                    <div className="flex flex-wrap items-center gap-6 text-xs text-gray-400 font-bold uppercase tracking-widest">
-                                      <div className="flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-sky-500" />
-                                        {job.location?.address}
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-sky-500" />
-                                        {formatDate(job.createdAt)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="md:w-72 flex flex-col justify-between items-end md:border-l border-gray-100 md:pl-8">
-                                    <div className="text-right">
-                                      <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Contract Value</p>
-                                      <p className="text-3xl font-black text-gray-900">₹{job.budget.toLocaleString()}</p>
-                                    </div>
-                                    <div className="space-y-3 w-full mt-8">
-                                      {job.bids.length > 0 && (
-                                        <>
-                                          <p className="text-[10px] text-right text-sky-500 font-black uppercase tracking-widest">{job.bids.length} Active Proposals</p>
-                                          {currentUser?.id === job.clientId && (
-                                            <div className="space-y-2 mt-2">
-                                              {job.bids.slice().reverse().slice(0, 3).map(bid => (
-                                                <div key={bid.id} className="flex justify-between items-center text-[10px] font-bold bg-sky-50 px-3 py-2 rounded-xl border border-sky-100 shadow-sm transition-transform hover:scale-[1.02]">
-                                                  <span className="text-gray-700 truncate mr-2 flex items-center gap-1.5">
-                                                    <div className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse" />
-                                                    {bid.workerName}
-                                                  </span>
-                                                  <span className="text-sky-600 font-black">₹{bid.amount.toLocaleString()}</span>
-                                                </div>
-                                              ))}
-                                              {job.bids.length > 3 && (
-                                                <p className="text-[9px] text-center text-gray-400 font-black uppercase tracking-widest mt-1">+{job.bids.length - 3} more professionals waiting</p>
-                                              )}
-                                            </div>
-                                          )}
-                                        </>
-                                      )}
-                                      <div className="flex gap-3 w-full">
-                                        <Button className="flex-1 text-xs font-black uppercase tracking-widest py-3" variant="outline" onClick={() => navigate(`/job/${job.id}`)}>View Contract</Button>
-                                        {job.status === 'In Progress' && currentUser?.id && (
-                                          <Button className="flex-1 text-xs font-black uppercase tracking-widest py-3" variant="secondary" onClick={() => handleMarkCompleted(job)}>Complete</Button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </Card>
-                            </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    } />
+                    <Route path="/my-jobs" element={<MyProjects onMarkCompleted={handleMarkCompleted} />} />
 
                     <Route path="/analytics" element={
                       currentUser?.role === 'Admin' ? (
@@ -1694,7 +1956,7 @@ export default function App() {
                                           <tr key={user.id} className="hover:bg-gray-50/50 transition-all group">
                                             <td className="py-6">
                                               <div className="flex items-center gap-4">
-                                                <img src={user.avatar} className="w-10 h-10 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                                                <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-2xl object-cover border-2 border-white shadow-sm" />
                                                 <div>
                                                   <p className="text-sm font-bold text-gray-900 group-hover:text-sky-600 transition-colors">{user.name}</p>
                                                   <p className="text-[10px] text-gray-400 font-bold">{user.email}</p>
@@ -1739,7 +2001,7 @@ export default function App() {
                                 <div className="flex items-center justify-between mb-10">
                                   <div>
                                     <h3 className="text-xl font-black text-gray-900">Global Marketplace Feed</h3>
-                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Platform-wide Project Activity</p>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Platform-wide Project Activity with Bids & Assignments</p>
                                   </div>
                                   <div className="flex gap-2">
                                      <span className="px-4 py-2 bg-gray-50 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 border border-gray-100">{jobs.length} Total Posts</span>
@@ -1750,50 +2012,174 @@ export default function App() {
                                   <table className="w-full text-left">
                                     <thead>
                                       <tr className="border-b border-gray-50">
-                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Project Details</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Project & Client</th>
                                         <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Category</th>
                                         <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Budget</th>
                                         <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Status</th>
-                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Posted By</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Bids</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Assigned Worker</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                       {jobs.slice().reverse().map(job => {
                                         const client = users.find(u => u.id === job.clientId);
+                                        const assignedWorker = job.assignedWorkerId ? users.find(u => u.id === job.assignedWorkerId) : null;
+                                        const isExpanded = expandedJobId === job.id;
+                                        const selectedBid = job.selectedBidId ? job.bids.find(b => b.id === job.selectedBidId) : null;
                                         return (
-                                          <tr key={job.id} className="hover:bg-gray-50/50 transition-all group">
-                                            <td className="py-6">
-                                              <div>
-                                                <p className="text-sm font-bold text-gray-900 group-hover:text-sky-600 transition-colors">{job.title}</p>
-                                                <p className="text-[10px] text-gray-400 font-bold">{formatDate(job.createdAt)}</p>
-                                              </div>
-                                            </td>
-                                            <td className="py-6 text-center">
-                                              <span className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-600">
-                                                {job.category}
-                                              </span>
-                                            </td>
-                                            <td className="py-6 text-center">
-                                              <span className="text-xs font-black text-gray-700">${job.budget}</span>
-                                            </td>
-                                            <td className="py-6 text-center">
-                                              <span className={cn(
-                                                "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest",
-                                                job.status === 'Completed' ? "bg-green-50 text-green-600" :
-                                                job.status === 'In Progress' ? "bg-sky-50 text-sky-600" :
-                                                job.status === 'Cancelled' ? "bg-red-50 text-red-600" :
-                                                "bg-yellow-50 text-yellow-600"
-                                              )}>
-                                                {job.status}
-                                              </span>
-                                            </td>
-                                            <td className="py-6">
-                                              <div className="flex items-center gap-3">
-                                                <img src={client?.avatar} className="w-6 h-6 rounded-lg object-cover" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{client?.name}</span>
-                                              </div>
-                                            </td>
-                                          </tr>
+                                          <React.Fragment key={job.id}>
+                                            <tr 
+                                              className="hover:bg-gray-50/50 transition-all group cursor-pointer"
+                                              onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                                            >
+                                              <td className="py-6">
+                                                <div className="flex items-center gap-3">
+                                                  <div className="flex-shrink-0">
+                                                    {isExpanded ? (
+                                                      <ChevronDown className="w-4 h-4 text-sky-500" />
+                                                    ) : (
+                                                      <ChevronRight className="w-4 h-4 text-gray-300" />
+                                                    )}
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-sm font-bold text-gray-900 group-hover:text-sky-600 transition-colors">{job.title}</p>
+                                                    <p className="text-[10px] text-gray-400 font-bold">{formatDate(job.createdAt)}</p>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-600">
+                                                  {job.category}
+                                                </span>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className="text-xs font-black text-gray-700">₹{job.budget.toLocaleString()}</span>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className={cn(
+                                                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest",
+                                                  job.status === 'Completed' ? "bg-green-50 text-green-600" :
+                                                  job.status === 'In Progress' ? "bg-sky-50 text-sky-600" :
+                                                  job.status === 'Cancelled' ? "bg-red-50 text-red-600" :
+                                                  "bg-yellow-50 text-yellow-600"
+                                                )}>
+                                                  {job.status}
+                                                </span>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className="text-xs font-black text-gray-700">{job.bids.length}</span>
+                                              </td>
+                                              <td className="py-6">
+                                                {assignedWorker ? (
+                                                  <div className="flex items-center gap-2">
+                                                    <img src={assignedWorker.avatar} alt={assignedWorker.name} className="w-6 h-6 rounded-lg object-cover" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-sky-600">{assignedWorker.name}</span>
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">—</span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                            {isExpanded && (
+                                              <tr>
+                                                <td colSpan={6} className="px-6 pb-6">
+                                                  <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    className="bg-gray-50 rounded-2xl p-6 space-y-6"
+                                                  >
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Posted by</p>
+                                                        <div className="flex items-center gap-2">
+                                                          <img src={client?.avatar} alt={client?.name || 'Client'} className="w-7 h-7 rounded-lg object-cover" />
+                                                          <span className="text-xs font-bold">{client?.name || 'Unknown'}</span>
+                                                        </div>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Urgency</p>
+                                                        <span className={cn(
+                                                          "text-xs font-bold",
+                                                          job.urgency === 'High' ? "text-red-600" : job.urgency === 'Medium' ? "text-yellow-600" : "text-green-600"
+                                                        )}>{job.urgency}</span>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Budget</p>
+                                                        <span className="text-sm font-black text-gray-900">₹{job.budget.toLocaleString()}</span>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</p>
+                                                        <span className="text-xs font-bold text-gray-600 truncate block max-w-[150px]">{job.location?.address}</span>
+                                                      </div>
+                                                    </div>
+
+                                                    <div>
+                                                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">All Bids ({job.bids.length})</p>
+                                                      {job.bids.length === 0 ? (
+                                                        <p className="text-xs text-gray-400 italic">No bids yet</p>
+                                                      ) : (
+                                                        <div className="space-y-2">
+                                                          {job.bids.map(bid => {
+                                                            const bidWorker = users.find(u => u.id === bid.workerId);
+                                                            const isSelected = job.selectedBidId === bid.id;
+                                                            return (
+                                                              <div key={bid.id} className={cn(
+                                                                "flex items-center justify-between p-3 rounded-xl border transition-all",
+                                                                isSelected 
+                                                                  ? "bg-sky-50 border-sky-300 shadow-sm" 
+                                                                  : "bg-white border-gray-200"
+                                                              )}>
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                  <img src={bidWorker?.avatar} alt={bid.workerName} className="w-8 h-8 rounded-xl object-cover flex-shrink-0" />
+                                                                  <div className="min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                      <span className="text-sm font-bold text-gray-900">{bid.workerName}</span>
+                                                                      {isSelected && (
+                                                                        <span className="px-2 py-0.5 bg-sky-500 text-white rounded text-[8px] font-black uppercase tracking-wider">Selected</span>
+                                                                      )}
+                                                                    </div>
+                                                                    {bid.message && (
+                                                                      <p className="text-[10px] text-gray-500 truncate max-w-[300px]">"{bid.message}"</p>
+                                                                    )}
+                                                                    <p className="text-[9px] text-gray-400">{formatDate(bid.createdAt)}</p>
+                                                                  </div>
+                                                                </div>
+                                                                <span className={cn(
+                                                                  "text-sm font-black flex-shrink-0 ml-4",
+                                                                  isSelected ? "text-sky-600" : "text-gray-700"
+                                                                )}>₹{bid.amount.toLocaleString()}</span>
+                                                              </div>
+                                                            );
+                                                          })}
+                                                        </div>
+                                                      )}
+                                                    </div>
+
+                                                    {assignedWorker && (
+                                                      <div className="flex items-center justify-between p-3 bg-sky-100 rounded-xl border border-sky-200">
+                                                        <div className="flex items-center gap-3">
+                                                          <CheckCircle2 className="w-5 h-5 text-sky-600" />
+                                                          <span className="text-sm font-bold text-sky-900">Assigned Worker:</span>
+                                                          <img src={assignedWorker.avatar} alt={assignedWorker.name} className="w-7 h-7 rounded-lg object-cover" />
+                                                          <span className="text-sm font-bold text-sky-900">{assignedWorker.name}</span>
+                                                        </div>
+                                                      </div>
+                                                    )}
+
+                                                    <div className="flex justify-end pt-2 border-t border-gray-200">
+                                                      <Button 
+                                                        variant="outline" 
+                                                        className="text-[10px] font-black uppercase tracking-widest py-2"
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`); }}
+                                                      >
+                                                        View Full Details →
+                                                      </Button>
+                                                    </div>
+                                                  </motion.div>
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </React.Fragment>
                                         );
                                       })}
                                     </tbody>
@@ -1836,7 +2222,7 @@ export default function App() {
                                             </td>
                                             <td className="py-6 text-center">
                                               <div className="flex items-center justify-center gap-2">
-                                                <img src={worker?.avatar} className="w-6 h-6 rounded-lg object-cover" />
+                                                <img src={worker?.avatar} alt={worker?.name || 'Worker'} className="w-6 h-6 rounded-lg object-cover" />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-sky-600">{worker?.name}</span>
                                               </div>
                                             </td>
@@ -1876,8 +2262,8 @@ export default function App() {
                                           <div className="flex items-center justify-between mb-4">
                                             <div className="flex items-center gap-3">
                                               <div className="flex -space-x-3">
-                                                <img src={from?.avatar} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
-                                                <img src={to?.avatar} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
+                                                <img src={from?.avatar} alt={from?.name || 'From'} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
+                                                <img src={to?.avatar} alt={to?.name || 'To'} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
                                               </div>
                                               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                 <span className="text-gray-900">{from?.name}</span> rated <span className="text-gray-900">{to?.name}</span>
@@ -1953,13 +2339,104 @@ export default function App() {
                         <Navigate to="/" />
                       )
                     } />
+                    <Route path="/saved" element={
+                      <Professionals onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }} />
+                    } />
+                    <Route path="/professionals" element={
+                      <Professionals onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }} />
+                    } />
+                    <Route path="/nearby" element={
+                      <div className="h-[calc(100vh-250px)] min-h-[500px]">
+                        <Card className="h-full bg-gray-100 relative group overflow-hidden border-2 border-white rounded-[40px] shadow-2xl">
+                          {MAP_KEY ? (
+                            <APIProvider apiKey={MAP_KEY}>
+                              <GoogleMap
+                                center={userLocation || { lat: 12.9716, lng: 77.5946 }}
+                                defaultZoom={11}
+                                mapId="lovi_full_map"
+                                style={{ width: '100%', height: '100%' }}
+                              >
+                                {userLocation && (
+                                  <AdvancedMarker position={{ lat: userLocation.lat, lng: userLocation.lng }} title="You">
+                                    <div className="w-12 h-12 bg-sky-500 rounded-full border-4 border-white shadow-xl flex items-center justify-center animate-bounce z-50">
+                                      <MapPin className="w-6 h-6 text-white" />
+                                    </div>
+                                  </AdvancedMarker>
+                                )}
+                                {jobs
+                                  .filter(j => j.status === 'Open' || j.status === 'Bidding')
+                                  .map(j => (
+                                    <AdvancedMarker key={j.id} position={{ lat: j.location.lat, lng: j.location.lng }} onClick={() => navigate(`/job/${j.id}`)}>
+                                      <div className="w-10 h-10 bg-emerald-500 rounded-2xl shadow-xl flex items-center justify-center border-2 border-white hover:scale-125 transition-transform cursor-pointer">
+                                        <Wrench className="w-5 h-5 text-white" />
+                                      </div>
+                                    </AdvancedMarker>
+                                  ))}
+                              </GoogleMap>
+                            </APIProvider>
+                          ) : (
+                            <div className="h-full flex items-center justify-center p-12 text-center bg-white/50 backdrop-blur-md">
+                              <div className="max-w-sm">
+                                <div className="w-24 h-24 bg-sky-100 rounded-[40px] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                  <MapIcon className="w-12 h-12 text-sky-500" />
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-900 mb-2">Nearby Experts Map</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                                  Add your Google Maps API Key to VITE_GOOGLE_MAPS_PLATFORM_KEY in .env to enable the nearby experts map.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          <div className="absolute top-6 left-6 right-6 bg-white/95 backdrop-blur p-4 rounded-3xl border border-gray-100 z-10 shadow-xl flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-sky-600 mb-0.5">
+                                <Zap className="w-3 h-3 fill-current" />
+                                Nearby Experts
+                              </p>
+                              <h4 className="text-sm font-black text-gray-900">Professionals around you</h4>
+                            </div>
+                            <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">
+                              {store.getUsers().filter(u => u.role === 'Worker').length} Available
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+                    } />
+                    <Route path="/messages" element={
+                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
+                          <Mail className="w-8 h-8 text-[#CBD5E1]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#0F172A]">Messages</h3>
+                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Your conversations with professionals and clients will appear here.</p>
+                        <Button variant="secondary" onClick={() => navigate('/marketplace')}>Browse Marketplace</Button>
+                      </div>
+                    } />
+                    <Route path="/notifications" element={
+                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
+                          <Bell className="w-8 h-8 text-[#CBD5E1]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#0F172A]">Notifications</h3>
+                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Stay updated with job alerts, bid responses, and platform announcements.</p>
+                        <Button variant="secondary" onClick={() => navigate('/marketplace')}>Browse Jobs</Button>
+                      </div>
+                    } />
+                    <Route path="/settings" element={
+                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
+                          <Settings className="w-8 h-8 text-[#CBD5E1]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#0F172A]">Settings</h3>
+                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Manage your account preferences, notifications, and privacy settings.</p>
+                        <Button variant="secondary">Account Settings</Button>
+                      </div>
+                    } />
                   </Routes>
                 </motion.div>
               } />
             </Routes>
           </AnimatePresence>
-        </main>
-      </div>
-    </div>
+    </Layout>
   );
 }
