@@ -27,7 +27,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center rounded-full border border-slate-100 p-1 bg-white shadow-sm overflow-hidden h-10 w-10">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Icon" className="h-7 w-7 object-contain" />
+                <img src="/Lovi-app/icon.svg" alt="Lovi Icon" className="h-7 w-7" />
               </div>
             <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
             <span className="text-xl font-black tracking-tighter text-slate-900 hidden sm:inline-block">
@@ -221,7 +221,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 className="group relative"
               >
                 <div className="w-48 h-48 bg-white rounded-[40px] flex items-center justify-center shadow-2xl rotate-6 group-hover:rotate-0 transition-transform duration-500 overflow-hidden">
-                   <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Brand" className="w-24 h-24 object-contain" />
+                   <img src="/Lovi-app/icon.svg" alt="Lovi Brand" className="w-24 h-24" />
                 </div>
                 <div className="absolute -bottom-4 -right-4 bg-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl">
                   Visit Lovi.life
@@ -238,7 +238,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center rounded-full border border-slate-100 p-1 bg-white shadow-sm overflow-hidden h-10 w-10">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Icon" className="h-7 w-7 object-contain" />
+                <img src="/Lovi-app/icon.svg" alt="Lovi Icon" className="h-7 w-7" />
               </div>
               <div className="h-4 w-px bg-slate-200 mx-1"></div>
               <span className="text-sm font-black tracking-tighter text-slate-900 uppercase">WORKS</span>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../lib/useStore';
 import { cn } from '../lib/utils';
 import {
-  Menu, Search, Bell, Mail, ChevronDown, User as UserIcon, Settings, LogOut, Award, Zap
+  Menu, Search, Bell, Mail, ChevronDown, User as UserIcon, Settings, LogOut, Award
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -40,8 +40,8 @@ export function Header({ onMenuClick, onToggleNotifications, onProfileClick, onL
           className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0"
           onClick={onLogoClick}
         >
-          <div className="w-7 h-7 rounded-lg bg-[#0EA5E9] flex items-center justify-center shadow-sm shadow-[#0EA5E9]/20 group-hover:scale-105 transition-transform">
-            <Zap className="w-3.5 h-3.5 text-white" fill="currentColor" />
+          <div className="w-7 h-7 rounded-lg bg-[#0EA5E9] flex items-center justify-center shadow-sm shadow-[#0EA5E9]/20 group-hover:scale-105 transition-transform overflow-hidden">
+            <img src="/Lovi-app/icon.svg" alt="Lovi" className="w-5 h-5" />
           </div>
           <span className="text-lg font-bold text-[#0F172A] tracking-tight hidden sm:inline">Lovi</span>
         </div>

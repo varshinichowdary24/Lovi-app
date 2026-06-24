@@ -1588,11 +1588,7 @@ export default function App() {
     performInit();
   }, []);
 
-  useEffect(() => {
-    if (currentUser && (location.pathname === '/' || location.pathname === '/auth')) {
-      navigate('/marketplace', { replace: true });
-    }
-  }, [currentUser, location.pathname, navigate]);
+
 
   const MAP_KEY = (import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY || (import.meta.env as any).GOOGLE_MAPS_PLATFORM_KEY || '')
     .replace('PASTE_YOUR_GOOGLE_MAPS_KEY_HERE', '');
@@ -1602,7 +1598,7 @@ export default function App() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="flex flex-col items-center gap-6 max-w-xs text-center">
           <div className="w-20 h-20 bg-sky-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-sky-500/30 animate-pulse">
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Icon" className="h-10 w-10 brightness-0 invert" />
+            <img src="/Lovi-app/icon.svg" alt="Lovi Icon" className="h-10 w-10" />
           </div>
           <p className="text-gray-500 font-bold animate-pulse tracking-widest uppercase text-xs">Initializing Lovi...</p>
       </div>
@@ -1824,7 +1820,7 @@ export default function App() {
                       />
                     } />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/" element={<LandingPage onGetStarted={() => navigate('/marketplace')} />} />
                     <Route path="/marketplace" element={
                       <Marketplace
                         userLocation={userLocation}

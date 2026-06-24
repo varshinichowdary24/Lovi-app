@@ -110,7 +110,7 @@ export const Auth = ({ onBack }: AuthProps) => {
         <div className="p-8 md:p-12">
           <div className="flex flex-col items-center mb-10">
             <div className="w-20 h-20 bg-sky-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-sky-500/30">
-              <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Icon" className="h-10 w-10 brightness-0 invert" />
+              <img src="/Lovi-app/icon.svg" alt="Lovi Icon" className="h-10 w-10" />
             </div>
             <h1 className="text-3xl font-black tracking-tight text-gray-900">
               {mode === 'login' ? 'Welcome Back' : 'Join Lovi'}

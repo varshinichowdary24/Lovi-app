@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "deploy": "gh-pages -d dist -b gh-pages",
+    "deploy": "gh-pages -d dist -b gh-pages --nojekyll",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
