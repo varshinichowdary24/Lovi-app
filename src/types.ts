@@ -51,6 +51,8 @@ export interface Job {
   bids: Bid[];
   assignedWorkerId?: string;
   selectedBidId?: string;
+  clientMarkedCompleted?: boolean;
+  workerMarkedCompleted?: boolean;
 }
 
 export interface Review {
@@ -60,5 +62,19 @@ export interface Review {
   toId: string;
   rating: number;
   comment: string;
+  createdAt: string;
+}
+
+export type NotificationType = 'new_job' | 'new_bid' | 'bid_accepted' | 'new_review' | 'job_completed';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  relatedJobId?: string;
+  relatedUserId?: string;
+  isRead: boolean;
   createdAt: string;
 }

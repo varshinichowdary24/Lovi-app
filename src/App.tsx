@@ -2,8 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -17,56 +17,225 @@ import {
   Hammer, 
   Zap, 
   Droplets, 
-  PaintBucket, 
   LayoutDashboard,
   LogOut,
-  ChevronRight,
   Star,
   CheckCircle2,
   TrendingUp,
   Map as MapIcon,
   Camera,
-  Image as ImageIcon,
   ThumbsUp,
-  MessageSquare
+  MessageSquare,
+  Clock,
+  ChevronRight,
+  ChevronDown,
+  Home,
+  Bookmark,
+  Mail,
+  Settings,
+  Users,
+  Shield,
+  Activity,
+  Briefcase,
+  ArrowRight,
+  ChevronUp,
+  ChevronLeft,
+  Filter,
+  RefreshCw,
+  Award,
+  Globe,
+  Heart,
+  Share2,
+  MoreHorizontal,
+  AlertCircle,
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
-import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { APIProvider, Map as GoogleMap, AdvancedMarker } from '@vis.gl/react-google-maps';
 
 import { useStore } from './lib/useStore';
-import { cn, formatDate } from './lib/utils';
-import { Job, JobCategory, User, Bid } from './types';
+import { cn, formatDate, calculateDistance, formatDistance } from './lib/utils';
+import { Job, JobCategory, Bid, Notification, User, Review } from './types';
 import { store } from './lib/store';
+import { supabase } from './lib/supabase';
+import { Auth } from './components/Auth';
+import { LandingPage } from './components/LandingPage';
+import { Layout } from './components/Layout';
+import { Button, Card } from './components/ui';
+import { Dashboard } from './pages/Dashboard';
+import { MyProjects } from './pages/MyProjects';
+import { Marketplace } from './pages/Marketplace';
+import { Professionals } from './pages/Professionals';
 
-// --- Components ---
+const WorkerProfileModal = ({ worker, isOpen, onClose, reviews, users }: {
+  worker: User | null;
+  isOpen: boolean;
+  onClose: () => void;
+  reviews: Review[];
+  users: User[];
+}) => {
+  if (!isOpen || !worker) return null;
+
+  const workerReviews = reviews.filter(r => r.toId === worker.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return (
+    <div className="fixed inset-0 bg-sky-500/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+      >
+        <div className="relative h-32 bg-gradient-to-r from-sky-500 to-sky-400">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-full">
+            <img src={worker.avatar} alt={worker.name} className="w-24 h-24 rounded-full object-cover border-4 border-white" />
+          </div>
+        </div>
+
+        <div className="pt-16 px-8 pb-8 flex-1 overflow-y-auto">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold">{worker.name}</h2>
+                {worker.verified && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
+              </div>
+              <p className="text-gray-500">{worker.email}</p>
+            </div>
+            <div className="text-right">
+              <span className="px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-bold uppercase tracking-wider">
+                {worker.role}
+              </span>
+              <div className="flex items-center gap-1 justify-end mt-2 text-yellow-600 font-bold">
+                <Star className="w-4 h-4 fill-current" />
+                {worker.rating || 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="p-4 bg-gray-50 rounded-xl text-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Completed</p>
+              <p className="font-bold">{worker.completedJobs || 0} Jobs</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl text-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Reviews</p>
+              <p className="font-bold">{workerReviews.length}</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl text-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Status</p>
+              <p className="text-green-600 font-bold">Verified</p>
+            </div>
+          </div>
+
+          {worker.bio && (
+            <div className="mb-8">
+              <h3 className="font-bold mb-2">About</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">{worker.bio}</p>
+            </div>
+          )}
+
+          {worker.skills && worker.skills.length > 0 && (
+            <div className="mb-8">
+              <h3 className="font-bold mb-3">Skills & Expertise</h3>
+              <div className="flex flex-wrap gap-2">
+                {worker.skills.map(skill => (
+                  <span key={skill} className="px-3 py-1 bg-gray-100 rounded-lg text-xs font-medium border border-gray-200">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Customer Reviews */}
+          <div className="pt-6 border-t border-gray-100">
+            <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-500 fill-current" />
+              Customer Reviews ({workerReviews.length})
+            </h3>
+
+            {workerReviews.length === 0 ? (
+              <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium text-sm">No reviews yet for this professional</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {workerReviews.map(review => {
+                  const customer = users.find(u => u.id === review.fromId);
+                  return (
+                    <div key={review.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={customer?.avatar}
+                            alt={customer?.name || 'Customer'}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{customer?.name || 'Anonymous'}</p>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">{customer?.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex text-yellow-500 bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
+                          {[1, 2, 3, 4, 5].map(i => (
+                            <Star key={i} className={cn("w-3.5 h-3.5", i <= review.rating ? "fill-current" : "text-gray-200")} />
+                          ))}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-gray-600 italic leading-relaxed text-sm mb-2">"{review.comment}"</p>
+                      )}
+                      <p className="text-[10px] text-gray-400 font-medium">{formatDate(review.createdAt)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// --- Modals & Complex Components ---
 
 const ReviewModal = ({ isOpen, onClose, onReview, job }: { isOpen: boolean, onClose: () => void, onReview: (rating: number, comment: string) => void, job: Job }) => {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const { users } = useStore();
+  const worker = users.find(u => u.id === job.assignedWorkerId);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-sky-500/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl"
       >
-        <h2 className="text-2xl font-bold mb-4">How was {job.clientName === store.getCurrentUser()?.name ? 'the service' : 'the client'}?</h2>
-        <p className="text-gray-500 mb-6 text-sm">Your feedback helps the Lovi community grow and identifies top-tier talent.</p>
+        <h2 className="text-2xl font-bold mb-4 text-center">Rate {worker?.name || 'the worker'}</h2>
+        <p className="text-gray-500 mb-6 text-sm text-center">How was the service provided for "{job.title}"? Your feedback is visible to all users and admins.</p>
         
         <div className="flex justify-center gap-2 mb-8">
           {[1, 2, 3, 4, 5].map(star => (
-            <button key={star} onClick={() => setRating(star)}>
+            <button key={star} onClick={() => setRating(star)} className="focus:outline-none">
               <Star className={cn("w-10 h-10 transition-all", rating >= star ? "text-yellow-500 fill-current" : "text-gray-200")} />
             </button>
           ))}
         </div>
 
         <textarea 
-          className="w-full p-4 border border-gray-200 rounded-xl mb-6 h-32 focus:ring-2 focus:ring-black outline-none"
-          placeholder="Share your experience..."
+          className="w-full p-4 border border-gray-200 rounded-xl mb-6 h-32 focus:ring-2 focus:ring-sky-500 outline-none resize-none"
+          placeholder="Share your experience with this worker..."
           value={comment}
           onChange={e => setComment(e.target.value)}
         />
@@ -81,18 +250,18 @@ const ReviewModal = ({ isOpen, onClose, onReview, job }: { isOpen: boolean, onCl
 };
 
 const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
-  const { currentUser, setCurrentUser, users } = useStore();
+  const { currentUser } = useStore();
   
   if (!isOpen || !currentUser) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-sky-500/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
       >
-        <div className="relative h-32 bg-black">
+        <div className="relative h-32 bg-sky-500">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm"
@@ -100,7 +269,7 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
             <X className="w-5 h-5" />
           </button>
           <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-full">
-            <img src={currentUser.avatar} className="w-24 h-24 rounded-full object-cover border-4 border-white" />
+            <img src={currentUser.avatar} alt={currentUser.name} className="w-24 h-24 rounded-full object-cover border-4 border-white" />
           </div>
         </div>
 
@@ -114,7 +283,7 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
               <p className="text-gray-500">{currentUser.email}</p>
             </div>
             <div className="text-right">
-              <span className="px-3 py-1 bg-black text-white rounded-full text-xs font-bold uppercase tracking-wider">
+              <span className="px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-bold uppercase tracking-wider">
                 {currentUser.role}
               </span>
               <div className="flex items-center gap-1 justify-end mt-2 text-yellow-600 font-bold">
@@ -161,32 +330,15 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
 
           <div className="pt-8 border-t border-gray-100 space-y-4">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Account Management</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <p className="text-[10px] text-gray-400 uppercase font-bold px-2">Switch Account (Demo)</p>
-                {users.map(user => (
-                  <button
-                    key={user.id}
-                    onClick={() => { setCurrentUser(user); onClose(); }}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
-                      currentUser.id === user.id ? "bg-gray-100 border border-gray-200 shadow-sm" : "hover:bg-gray-50"
-                    )}
-                  >
-                    <img src={user.avatar} className="w-8 h-8 rounded-full object-cover" />
-                    <div>
-                      <p className="text-sm font-bold">{user.name}</p>
-                      <p className="text-[10px] text-gray-400 uppercase font-bold">{user.role}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-col justify-end">
-                <Button variant="outline" className="w-full text-red-600 border-red-100 hover:bg-red-50 py-3">
-                  <LogOut className="w-5 h-5" />
-                  Sign Out of Lovi
-                </Button>
-              </div>
+            <div className="flex flex-col gap-4">
+              <Button 
+                variant="outline" 
+                className="w-full text-red-600 border-red-100 hover:bg-red-50 py-3"
+                onClick={() => { store.signOut(); onClose(); }}
+              >
+                <LogOut className="w-5 h-5" />
+                Sign Out of Lovi
+              </Button>
             </div>
           </div>
         </div>
@@ -195,230 +347,343 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
   );
 };
 
-const ReviewListView = () => {
-  const { jobs, reviews, users } = useStore();
-  
-  return (
-    <div className="space-y-6">
-      <div className="bg-black text-white p-8 rounded-2xl relative overflow-hidden">
-        <div className="relative z-10">
-          <h2 className="text-3xl font-bold mb-2">Platform Reputation</h2>
-          <p className="opacity-70 max-w-lg">Lovi Works maintains high standards through authentic feedback and a transparent bidding system.</p>
-        </div>
-        <Star className="absolute top-0 right-0 w-48 h-48 text-white/5 -rotate-12 translate-x-12 -translate-y-6" fill="currentColor" />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="p-6 col-span-full md:col-span-1">
-          <h3 className="font-bold flex items-center gap-2 mb-4">
-            <ThumbsUp className="w-5 h-5 text-orange-600" />
-            Performance Metrics
-          </h3>
-          <div className="flex items-end gap-3 mb-6">
-            <span className="text-5xl font-bold">4.9</span>
-            <div className="pb-1">
-              <div className="flex text-yellow-500">
-                {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
-              </div>
-              <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Average Worker Rating</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-             {[
-               { label: 'Verified Skills', count: '100%' },
-               { label: 'On-time Rate', count: '94%' },
-               { label: 'Safety Score', count: '98%' },
-             ].map(stat => (
-               <div key={stat.label} className="flex items-center justify-between">
-                 <span className="text-sm text-gray-500 font-medium">{stat.label}</span>
-                 <span className="text-sm font-bold">{stat.count}</span>
-               </div>
-             ))}
-          </div>
-        </Card>
-
-        <div className="col-span-full md:col-span-1 lg:col-span-2 space-y-4">
-          <h3 className="font-bold flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            Worker Performance Feedbacks
-          </h3>
-          {reviews.length > 0 ? (
-            reviews.map(review => {
-              const fromUser = users.find(u => u.id === review.fromId);
-              const toUser = users.find(u => u.id === review.toId);
-              const job = jobs.find(j => j.id === review.jobId);
-              
-              return (
-                <div key={review.id}>
-                  <Card className="p-5 border-none bg-white shadow-sm">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <img src={fromUser?.avatar} className="w-8 h-8 rounded-full" />
-                        <div>
-                          <p className="text-sm font-bold">{fromUser?.name}</p>
-                          <p className="text-[10px] text-gray-400">Review for <span className="text-black font-bold">{toUser?.name}</span></p>
-                        </div>
-                      </div>
-                      <div className="flex text-yellow-500">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <Star key={i} className={cn("w-3 h-3", i <= review.rating ? "fill-current" : "text-gray-200")} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3 leading-relaxed">"{review.comment}"</p>
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                       <span>Job: {job?.title}</span>
-                       <span>{formatDate(review.createdAt)}</span>
-                    </div>
-                  </Card>
-                </div>
-              );
-            })
-          ) : (
-            <div className="p-12 text-center bg-white rounded-2xl border border-dashed border-gray-200">
-               <ThumbsUp className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-               <p className="text-sm text-gray-500 italic">No feedback entries yet. Complete a job to leave a review!</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const JobDetailsView = ({ job, onClose, onAcceptBid, onBid }: { 
+const JobDetailsView = ({ job, onClose, onAcceptBid, onBid, onMarkCompleted, onViewWorkerProfile, userLocation }: { 
   job: Job, 
   onClose: () => void, 
   onAcceptBid: (bid: Bid) => void,
-  onBid: (amount: number, message: string) => void
+  onBid: (amount: number, message: string) => void,
+  onMarkCompleted: (job: Job) => void,
+  onViewWorkerProfile: (worker: User) => void,
+  userLocation: { lat: number, lng: number } | null
 }) => {
-  const { currentUser } = useStore();
+  const { currentUser, reviews, users } = useStore();
   const [bidAmount, setBidAmount] = useState(job.budget);
   const [bidMessage, setBidMessage] = useState('');
+  const [expandedWorkerId, setExpandedWorkerId] = useState<string | null>(null);
+  
   const isOwner = job.clientId === currentUser?.id;
   const isWorker = currentUser?.role === 'Worker';
+  const isAssignedWorker = job.assignedWorkerId === currentUser?.id;
   const alreadyBid = job.bids.some(b => b.workerId === currentUser?.id);
+  
+  const distance = userLocation && job.location 
+    ? calculateDistance(userLocation.lat, userLocation.lng, job.location.lat, job.location.lng)
+    : null;
+
+  useEffect(() => {
+    console.log('JobDetailsView mounted', { 
+      jobId: job.id, 
+      bids: job.bids, 
+      isOwner, 
+      currentUserId: currentUser?.id,
+      clientId: job.clientId 
+    });
+  }, [job, isOwner, currentUser]);
+
+  const jobReviews = reviews.filter(r => r.jobId === job.id);
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[90] flex justify-end">
+    <div className="fixed inset-0 bg-sky-500/40 backdrop-blur-md z-[90] flex items-center justify-center p-4">
       <motion.div 
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col"
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden"
       >
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Job Details</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6" /></button>
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold">Job Details</h2>
+            <span className={cn(
+              "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+              job.status === 'Open' ? "bg-green-100 text-green-700" : 
+              job.status === 'Completed' ? "bg-emerald-500 text-white shadow-sm" : "bg-blue-100 text-blue-700"
+            )}>
+              {job.status}
+            </span>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className={cn(
-                "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider",
-                job.status === 'Open' ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-              )}>
-                {job.status}
-              </span>
-              <span className="text-2xl font-bold">₹{job.budget}</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
-            <p className="text-gray-600 leading-relaxed">{job.description}</p>
-            
-            {job.photos && job.photos.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {job.photos.map((p, i) => (
-                  <img key={i} src={p} className="w-full h-40 object-cover rounded-xl" />
-                ))}
+        <div className="flex-1 overflow-y-auto p-8 lg:p-12 space-y-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-3xl font-bold text-sky-600">₹{job.budget}</span>
+                    {distance !== null && (
+                      <span className="text-xs font-bold text-sky-500 flex items-center gap-1 bg-sky-50 self-start px-2 py-1 rounded-full">
+                        <MapPin className="w-3 h-3" />
+                        {formatDistance(distance)} from you
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
+                    <Clock className="w-4 h-4" />
+                    Posted {formatDate(job.createdAt)}
+                  </div>
+                </div>
+                <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 leading-tight">{job.title}</h1>
+                <p className="text-gray-600 text-lg leading-relaxed">{job.description}</p>
+                
+                <div className="flex flex-wrap gap-3">
+                  <div className="px-4 py-2 bg-gray-50 rounded-xl flex items-center gap-2 border border-gray-100">
+                    <Wrench className="w-4 h-4 text-sky-500" />
+                    <span className="text-sm font-bold">{job.category}</span>
+                  </div>
+                  <div className="px-4 py-2 bg-gray-50 rounded-xl flex items-center gap-2 border border-gray-100">
+                    <MapPin className="w-4 h-4 text-sky-500" />
+                    <span className="text-sm font-bold">{job.location?.address}</span>
+                  </div>
+                  <div className="px-4 py-2 bg-gray-50 rounded-xl flex items-center gap-2 border border-gray-100">
+                    <UserIcon className="w-4 h-4 text-sky-500" />
+                    <span className="text-sm font-bold">{job.clientName}</span>
+                  </div>
+                </div>
               </div>
-            )}
+
+              {job.photos && job.photos.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {job.photos.map((p, i) => (
+                    <img key={i} src={p} alt="Job photo" className="w-full h-48 object-cover rounded-2xl shadow-sm hover:shadow-md transition-shadow" />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-8">
+              {/* Dual Completion Section */}
+              {(isOwner || isAssignedWorker) && (job.status === 'In Progress' || job.status === 'Completed') && (
+                <Card className="p-8 bg-sky-50 border-sky-100 border-2">
+                  <div className="flex justify-between items-start mb-6">
+                    <h3 className="font-bold text-lg flex items-center gap-2 text-sky-900">
+                      <CheckCircle2 className="w-6 h-6 text-sky-500" />
+                      Work Completion Status
+                    </h3>
+                    {job.selectedBidId && (
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Contracted Amount</p>
+                        <p className="text-xl font-black text-sky-600">₹{job.bids.find(b => b.id === job.selectedBidId)?.amount.toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-6 mb-8">
+                    <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-2xl border border-sky-100 shadow-sm">
+                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center border-2", job.clientMarkedCompleted ? "bg-sky-500 border-sky-500 text-white" : "border-gray-200 text-gray-300")}>
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Client</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-2xl border border-sky-100 shadow-sm">
+                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center border-2", job.workerMarkedCompleted ? "bg-sky-500 border-sky-500 text-white" : "border-gray-200 text-gray-300")}>
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Worker</span>
+                    </div>
+                  </div>
+                  
+                  {isOwner && !job.clientMarkedCompleted && job.status === 'In Progress' && (
+                    <Button className="w-full py-4 text-lg" variant="secondary" onClick={() => onMarkCompleted(job)}>
+                      Mark Work as Completed
+                    </Button>
+                  )}
+                  {isAssignedWorker && !job.workerMarkedCompleted && job.status === 'In Progress' && (
+                    <Button className="w-full py-4 text-lg" variant="secondary" onClick={() => onMarkCompleted(job)}>
+                      Mark Work as Completed
+                    </Button>
+                  )}
+                  {((isOwner && job.clientMarkedCompleted) || (isAssignedWorker && job.workerMarkedCompleted)) && job.status === 'In Progress' && (
+                    <div className="text-center space-y-2">
+                      <p className="text-sm text-sky-700 font-bold animate-pulse">Waiting for the other party to confirm...</p>
+                      <p className="text-[10px] text-sky-500 uppercase tracking-widest">Both must confirm to finalize payment and rating</p>
+                    </div>
+                  )}
+                  {job.status === 'Completed' && (
+                    <div className="text-center py-2">
+                      <p className="text-sky-600 font-bold flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Job Fully Completed & Verified
+                      </p>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* Integrated Feedback Section */}
+              {jobReviews.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-xl flex items-center gap-2 text-gray-900">
+                    <ThumbsUp className="w-6 h-6 text-sky-500" />
+                    Final Job Feedback
+                  </h3>
+                  <div className="space-y-4">
+                    {jobReviews.map(review => {
+                      const fromUser = users.find(u => u.id === review.fromId);
+                      return (
+                        <div key={review.id}>
+                          <Card className="p-6 bg-gray-50 border-none shadow-sm">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <img src={fromUser?.avatar} alt={fromUser?.name || 'User'} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
+                                <div>
+                                  <p className="text-sm font-bold">{fromUser?.name}</p>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold">{fromUser?.role}</p>
+                                </div>
+                              </div>
+                              <div className="flex text-yellow-500 bg-white px-2 py-1 rounded-lg shadow-sm border border-gray-100">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                  <Star key={i} className={cn("w-3.5 h-3.5", i <= review.rating ? "fill-current" : "text-gray-200")} />
+                                ))}
+                              </div>
+                            </div>
+                            <p className="text-gray-600 italic leading-relaxed">"{review.comment}"</p>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-              <p className="text-[10px] uppercase font-bold text-gray-400">Category</p>
-              <p className="font-bold flex items-center gap-2">
-                <Wrench className="w-4 h-4" />
-                {job.category}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl space-y-1">
-              <p className="text-[10px] uppercase font-bold text-gray-400">Client</p>
-              <p className="font-bold">{job.clientName}</p>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-4 border-t border-gray-100">
-            <h3 className="font-bold text-lg flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Bids ({job.bids.length})
+          <div className="space-y-6 pt-12 border-t border-gray-100">
+            <h3 className="font-bold text-2xl flex items-center gap-3 text-gray-900">
+              <MessageSquare className="w-7 h-7 text-sky-500" />
+              Professional Bids & Proposals ({job.bids.length})
             </h3>
 
-            {isOwner && job.status === 'Bidding' && (
-              <div className="space-y-3">
-                {job.bids.map(bid => (
-                  <div key={bid.id}>
-                    <Card className="p-4 border-orange-100 bg-orange-50/20">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white text-[10px] font-bold">
-                            {bid.workerName.charAt(0)}
-                          </div>
-                          <p className="font-bold">{bid.workerName}</p>
-                        </div>
-                        <span className="text-xl font-bold">₹{bid.amount}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-4 italic">"{bid.message}"</p>
-                      <Button 
-                        className="w-full py-2 text-sm" 
-                        variant="secondary"
-                        onClick={() => onAcceptBid(bid)}
-                      >
-                        Accept Quotation
-                      </Button>
-                    </Card>
+            {/* Professional Bids Section for Clients */}
+            {isOwner && (
+              <div className="space-y-6">
+                {job.bids.length === 0 ? (
+                  <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500 font-medium">No proposals received yet. Workers will start bidding soon!</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {job.bids.map(bid => {
+                      const worker = users.find(u => u.id === bid.workerId);
+                      const workerReviews = reviews.filter(r => r.toId === bid.workerId);
+                      const isExpanded = expandedWorkerId === bid.workerId;
+                      
+                      return (
+                        <div key={bid.id}>
+                          <Card className={cn(
+                            "p-6 border-2 transition-all cursor-pointer",
+                            job.selectedBidId === bid.id ? "bg-sky-50 border-sky-500 shadow-md" : "border-gray-100 hover:border-sky-200"
+                          )} onClick={() => setExpandedWorkerId(isExpanded ? null : bid.workerId)}>
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-4">
+                                <div
+                                  className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center text-white text-lg font-bold overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-sky-300 transition-all"
+                                  onClick={(e) => { e.stopPropagation(); if (worker) onViewWorkerProfile(worker); }}
+                                >
+                                  {worker?.avatar ? <img src={worker.avatar} alt={worker.name} className="w-full h-full object-cover" /> : bid.workerName.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p
+                                      className="font-bold text-lg cursor-pointer hover:text-sky-600 transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); if (worker) onViewWorkerProfile(worker); }}
+                                    >{bid.workerName}</p>
+                                    {worker?.verified && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-yellow-600 font-bold text-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); if (worker) onViewWorkerProfile(worker); }}>
+                                    <Star className="w-4 h-4 fill-current" />
+                                    {worker?.rating || '0.0'}
+                                    <span className="text-gray-400 font-medium text-xs ml-1">({workerReviews.length} reviews)</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-2xl font-black text-gray-900">₹{bid.amount}</span>
+                            </div>
+                            
+                            {bid.message && (
+                              <p className="text-gray-600 mb-6 italic leading-relaxed">"{bid.message}"</p>
+                            )}
+                            
+                            {isExpanded && workerReviews.length > 0 && (
+                              <div className="mb-6 space-y-3 pt-4 border-t border-gray-100">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recent Feedback for Worker</p>
+                                {workerReviews.slice(0, 2).map(r => (
+                                  <div key={r.id} className="text-xs p-3 bg-white rounded-xl border border-gray-100">
+                                    <div className="flex justify-between mb-1">
+                                      <div className="flex text-yellow-500">
+                                        {[1,2,3,4,5].map(i => <Star key={i} className={cn("w-2.5 h-2.5", i <= r.rating ? "fill-current" : "text-gray-100")} />)}
+                                      </div>
+                                      <span className="text-[10px] text-gray-400">{formatDate(r.createdAt)}</span>
+                                    </div>
+                                    <p className="text-gray-500 line-clamp-2">"{r.comment}"</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {(job.status === 'Open' || job.status === 'Bidding') && !job.selectedBidId && (
+                              <Button 
+                                className="w-full py-3" 
+                                variant="secondary"
+                                onClick={(e) => { e.stopPropagation(); onAcceptBid(bid); }}
+                              >
+                                Accept Quotation
+                              </Button>
+                            )}
+                            {job.selectedBidId === bid.id && (
+                              <div className="w-full py-2 bg-sky-500 text-white rounded-lg text-center font-bold text-sm uppercase tracking-wider">
+                                Currently Working
+                              </div>
+                            )}
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
-            {isWorker && !isOwner && job.status === 'Open' && !alreadyBid && (
-              <Card className="p-6 space-y-4 border-black/10 bg-gray-50">
-                <h4 className="font-bold text-sm uppercase tracking-widest text-gray-500">Submit your Quote</h4>
-                <div className="grid grid-cols-2 gap-4">
-                   <div>
-                      <label className="text-xs font-bold mb-1 block">Your Price (₹)</label>
-                      <input 
-                        type="number" 
-                        className="w-full p-3 border border-gray-200 rounded-lg text-lg font-bold"
-                        scroll-behavior="none"
-                        value={bidAmount}
-                        onChange={e => setBidAmount(Number(e.target.value))}
-                      />
-                   </div>
-                   <div className="flex items-end">
-                      <Button className="w-full py-3 h-[50px]" onClick={() => onBid(bidAmount, bidMessage)}>Send Bid</Button>
-                   </div>
+            {/* Bidding Section for Workers */}
+            {isWorker && !isOwner && !alreadyBid && (job.status === 'Open' || job.status === 'Bidding') && (
+              <Card className="p-8 space-y-6 border-sky-500/10 bg-gray-50 rounded-3xl">
+                <h4 className="font-bold text-lg uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  Submit your Quotation
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700 block ml-1">Your Proposed Price (₹)</label>
+                    <input 
+                      type="number" 
+                      className="w-full p-4 bg-white border border-gray-200 rounded-2xl text-2xl font-black text-sky-600 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all"
+                      value={bidAmount}
+                      onChange={e => setBidAmount(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button className="w-full py-4 h-[64px] rounded-2xl shadow-lg shadow-sky-500/20" onClick={() => onBid(bidAmount, bidMessage)}>Send Proposal Now</Button>
+                  </div>
                 </div>
-                <div>
-                   <label className="text-xs font-bold mb-1 block">Message</label>
-                   <textarea 
-                     className="w-full p-3 border border-gray-200 rounded-lg h-24"
-                     placeholder="Tell the client why you're a good fit..."
-                     value={bidMessage}
-                     onChange={e => setBidMessage(e.target.value)}
-                   />
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 block ml-1">Message to Client</label>
+                  <textarea 
+                    className="w-full p-4 bg-white border border-gray-200 rounded-2xl h-32 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all resize-none"
+                    placeholder="Explain your approach and why you're the best fit for this job..."
+                    value={bidMessage}
+                    onChange={e => setBidMessage(e.target.value)}
+                  />
                 </div>
               </Card>
             )}
 
-            {alreadyBid && (
-               <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-2" />
-                  <p className="font-bold">You've submitted a bid!</p>
-                  <p className="text-xs text-gray-500">The client will review your quote and get back to you.</p>
-               </div>
+            {isWorker && !isOwner && alreadyBid && (
+              <div className="p-12 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-green-200">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                </div>
+                <h4 className="text-xl font-bold mb-1 text-green-700">Proposal Sent</h4>
+                <p className="text-sm text-gray-500">You have already submitted a bid for this job. The client will review your quote.</p>
+              </div>
             )}
           </div>
         </div>
@@ -427,100 +692,277 @@ const JobDetailsView = ({ job, onClose, onAcceptBid, onBid }: {
   );
 };
 
-const Button = ({ 
-  children, 
-  className, 
-  variant = 'primary', 
-  ...props 
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'outline' | 'ghost' }) => {
-  const variants = {
-    primary: 'bg-black text-white hover:bg-gray-800',
-    secondary: 'bg-orange-600 text-white hover:bg-orange-700',
-    outline: 'border border-black text-black hover:bg-gray-100',
-    ghost: 'hover:bg-gray-100 text-gray-600',
+const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
+  const icons: Record<Notification['type'], React.ReactNode> = {
+    new_job: <Bell className="w-5 h-5" />,
+    new_bid: <MessageSquare className="w-5 h-5" />,
+    bid_accepted: <CheckCircle2 className="w-5 h-5" />,
+    new_review: <Star className="w-5 h-5" />,
+    job_completed: <CheckCircle2 className="w-5 h-5" />,
   };
+  return icons[type] || <Bell className="w-5 h-5" />;
+};
+
+const NotificationPanel = ({ 
+  notifications, 
+  onMarkRead, 
+  onMarkAllRead, 
+  onClose,
+  onNavigate 
+}: { 
+  notifications: Notification[]
+  onMarkRead: (id: string) => void
+  onMarkAllRead: () => void
+  onClose: () => void
+  onNavigate: (jobId: string) => void
+}) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
   return (
-    <button 
-      className={cn(
-        'px-4 py-2 rounded-lg font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2', 
-        variants[variant], 
-        className
-      )} 
-      {...props}
+    <div 
+      ref={panelRef}
+      className="absolute top-16 right-4 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
     >
-      {children}
-    </button>
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="font-bold text-lg">Notifications</h3>
+        {notifications.some(n => !n.isRead) && (
+          <button 
+            onClick={onMarkAllRead}
+            className="text-xs font-bold text-sky-500 hover:text-sky-600 uppercase tracking-wider"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      <div className="max-h-96 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center">
+            <Bell className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 font-medium">No notifications yet</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {notifications.map(notification => (
+              <button
+                key={notification.id}
+                onClick={() => {
+                  if (!notification.isRead) onMarkRead(notification.id);
+                  if (notification.relatedJobId) onNavigate(notification.relatedJobId);
+                  onClose();
+                }}
+                className={cn(
+                  "w-full text-left p-4 flex gap-3 hover:bg-gray-50 transition-colors",
+                  !notification.isRead && "bg-sky-50/50"
+                )}
+              >
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                  notification.type === 'new_job' ? "bg-blue-100 text-blue-600" :
+                  notification.type === 'new_bid' ? "bg-green-100 text-green-600" :
+                  notification.type === 'bid_accepted' ? "bg-sky-100 text-sky-600" :
+                  notification.type === 'new_review' ? "bg-yellow-100 text-yellow-600" :
+                  "bg-emerald-100 text-emerald-600"
+                )}>
+                  <NotificationIcon type={notification.type} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={cn("text-sm", !notification.isRead ? "font-bold text-gray-900" : "font-medium text-gray-700")}>
+                      {notification.title}
+                    </p>
+                    {!notification.isRead && (
+                      <div className="w-2 h-2 bg-sky-500 rounded-full flex-shrink-0 mt-1.5" />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notification.message}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">{formatDate(notification.createdAt)}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn('bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow', className)}>
-    {children}
-  </div>
-);
-
-const Navbar = ({ onMenuClick, onNotifyClick, onProfileClick }: { onMenuClick: () => void, onNotifyClick: () => void, onProfileClick: () => void }) => {
+const Navbar = ({ onMenuClick, onToggleNotifications, onProfileClick, onLogoClick, unreadCount }: { 
+  onMenuClick: () => void, 
+  onToggleNotifications: () => void, 
+  onProfileClick: () => void,
+  onLogoClick: () => void,
+  unreadCount: number
+}) => {
   const { currentUser } = useStore();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <nav className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 sticky top-0 z-40">
+    <nav className="h-16 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40">
       <div className="flex items-center gap-4">
-        <button onClick={onMenuClick} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
-          <Menu className="w-6 h-6" />
+        <button onClick={onMenuClick} className="lg:hidden p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors">
+          <Menu className="w-5 h-5 text-[#64748B]" />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="bg-black p-1.5 rounded-lg">
-            <Zap className="w-5 h-5 text-white" fill="currentColor" />
+        <div 
+          className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0" 
+          onClick={onLogoClick}
+        >
+          <div className="w-7 h-7 rounded-lg bg-[#0EA5E9] flex items-center justify-center shadow-sm shadow-[#0EA5E9]/20 group-hover:scale-105 transition-transform">
+            <Zap className="w-3.5 h-3.5 text-white" fill="currentColor" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Lovi Works</span>
-          <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded uppercase font-bold tracking-widest ml-1">Beta</span>
+          <span className="text-lg font-bold text-[#0F172A] tracking-tight hidden sm:inline">Lovi</span>
+        </div>
+
+        {/* Global Search */}
+        <div className="relative hidden md:block w-80 lg:w-96">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search jobs, professionals, or services..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]/20 focus:border-[#0EA5E9] transition-all"
+          />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#94A3B8] bg-white border border-[#E2E8F0] px-1.5 py-0.5 rounded font-mono hidden lg:inline">⌘K</kbd>
         </div>
       </div>
-      
-      <div className="flex items-center gap-3">
-        <button className="p-2 hover:bg-gray-100 rounded-lg relative" onClick={onNotifyClick}>
-          <Bell className="w-5 h-5 text-gray-600" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-orange-600 rounded-full border-2 border-white"></span>
+
+      <div className="flex items-center gap-2">
+        {/* Messages */}
+        <button className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group">
+          <Mail className="w-5 h-5 text-[#64748B] group-hover:text-[#0EA5E9] transition-colors" />
+          <span className="absolute top-1 right-1 w-4 h-4 bg-[#0EA5E9] text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-white">3</span>
         </button>
-        <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block"></div>
-        <button 
-          onClick={onProfileClick}
-          className="flex items-center gap-3 pl-1 hover:bg-gray-50 p-1.5 rounded-xl transition-colors text-left"
-        >
-          <div className="hidden sm:block text-right">
-            <p className="text-sm font-semibold">{currentUser?.name}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">{currentUser?.role}</p>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
-            {currentUser?.avatar ? (
-              <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                <UserIcon className="w-6 h-6" />
-              </div>
+
+        {/* Notifications */}
+        <button className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group" onClick={onToggleNotifications}>
+          <Bell className="w-5 h-5 text-[#64748B] group-hover:text-[#0EA5E9] transition-colors" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-[#F59E0B] text-white text-[8px] font-bold rounded-full flex items-center justify-center px-1 border border-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        <div className="w-px h-6 bg-[#E2E8F0] mx-1" />
+
+        {/* User Menu */}
+        <div className="relative" ref={menuRef}>
+          <button 
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2.5 pl-1 hover:bg-[#F8FAFC] p-1.5 pr-3 rounded-lg transition-all group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0EA5E9] to-[#0284C7] flex items-center justify-center text-white text-xs font-bold shadow-sm">
+              {currentUser?.avatar ? (
+                <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover rounded-lg" />
+              ) : (
+                currentUser?.name?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />
+              )}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-xs font-semibold text-[#0F172A] leading-tight">{currentUser?.name?.split(' ')[0] || 'User'}</p>
+              <p className="text-[9px] text-[#94A3B8] font-medium">{currentUser?.role || 'Member'}</p>
+            </div>
+            <ChevronDown className={cn("w-3.5 h-3.5 text-[#94A3B8] transition-transform", showUserMenu && "rotate-180")} />
+          </button>
+
+          <AnimatePresence>
+            {showUserMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl border border-[#E2E8F0] shadow-xl shadow-[#0F172A]/5 overflow-hidden"
+              >
+                <div className="p-3 border-b border-[#E2E8F0]">
+                  <p className="text-sm font-semibold text-[#0F172A]">{currentUser?.name}</p>
+                  <p className="text-[11px] text-[#64748B]">{currentUser?.email}</p>
+                </div>
+                <div className="p-1.5">
+                  {[
+                    { icon: UserIcon, label: 'Profile', onClick: () => onProfileClick() },
+                    { icon: Settings, label: 'Settings', onClick: () => {} },
+                    { icon: Award, label: 'Badges & Achievements', onClick: () => {} },
+                  ].map((item, i) => (
+                    <motion.button
+                      key={item.label}
+                      whileHover={{ x: 2 }}
+                      onClick={() => { item.onClick(); setShowUserMenu(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A] transition-colors"
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </motion.button>
+                  ))}
+                </div>
+                <div className="p-1.5 border-t border-[#E2E8F0]">
+                  <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors">
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              </motion.div>
             )}
-          </div>
-        </button>
+          </AnimatePresence>
+        </div>
       </div>
     </nav>
   );
 };
 
-const Sidebar = ({ isOpen, onClose, activeTab, onTabChange }: { 
+const Sidebar = ({ isOpen, onClose, onRefresh }: { 
   isOpen: boolean, 
   onClose: () => void, 
-  activeTab: string, 
-  onTabChange: (tab: string) => void 
+  onRefresh: () => void
 }) => {
   const { currentUser } = useStore();
+  const navigate = useNavigate();
+  const location = useLocation();
   
-  const menuItems = [
-    { id: 'feed', label: 'Public Feed', icon: MapIcon, roles: ['Client', 'Worker', 'Admin'] },
-    { id: 'my-jobs', label: 'My Projects', icon: Wrench, roles: ['Client', 'Worker'] },
-    { id: 'reviews', label: 'Feedbacks', icon: ThumbsUp, roles: ['Client', 'Worker', 'Admin'] },
-    { id: 'analytics', label: 'Admin Analytics', icon: TrendingUp, roles: ['Admin'] },
+  const mainItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Home, roles: ['Client', 'Worker', 'Admin'], path: '/dashboard' },
+    { id: 'marketplace', label: 'Marketplace', icon: Search, roles: ['Client', 'Worker', 'Admin'], path: '/marketplace' },
+    { id: 'my-jobs', label: 'My Projects', icon: Briefcase, roles: ['Client', 'Worker', 'Admin'], path: '/my-jobs' },
+    { id: 'saved', label: 'Saved Professionals', icon: Bookmark, roles: ['Client'], path: '/saved' },
+    { id: 'nearby', label: 'Nearby Experts', icon: MapPin, roles: ['Client', 'Worker'], path: '/nearby' },
   ];
 
-  const filteredMenu = menuItems.filter(item => item.roles.includes(currentUser?.role || ''));
+  const supportItems = [
+    { id: 'messages', label: 'Messages', icon: Mail, roles: ['Client', 'Worker', 'Admin'], path: '/messages' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, roles: ['Client', 'Worker', 'Admin'], path: '/notifications' },
+    { id: 'settings', label: 'Settings', icon: Settings, roles: ['Client', 'Worker', 'Admin'], path: '/settings' },
+  ];
+
+  const filteredMain = mainItems.filter(item => item.roles.includes(currentUser?.role || ''));
+  const filteredSupport = supportItems.filter(item => item.roles.includes(currentUser?.role || ''));
+
+  const isActive = (path: string) => {
+    if (path === '/dashboard') return location.pathname === '/dashboard';
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <>
@@ -531,44 +973,111 @@ const Sidebar = ({ isOpen, onClose, activeTab, onTabChange }: {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 lg:hidden"
+            className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm z-50 lg:hidden"
           />
         )}
       </AnimatePresence>
       <aside className={cn(
-        "fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static lg:block",
+        "fixed inset-y-0 left-0 w-[260px] bg-white border-r border-[#E2E8F0] z-50 transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:block flex flex-col",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="h-full flex flex-col p-6">
-          <div className="flex items-center justify-between lg:hidden mb-8">
-            <span className="font-bold">Menu</span>
-            <button onClick={onClose}><X className="w-6 h-6" /></button>
+        {/* Logo */}
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-[#E2E8F0] flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#0EA5E9] flex items-center justify-center shadow-lg shadow-[#0EA5E9]/20">
+            <Zap className="w-4 h-4 text-white" fill="currentColor" />
           </div>
+          <span className="text-lg font-bold text-[#0F172A] tracking-tight">Lovi</span>
+          <span className="text-[9px] font-bold text-[#0EA5E9] bg-[#0EA5E9]/10 px-2 py-0.5 rounded-full ml-auto">BETA</span>
+        </div>
 
-          <div className="space-y-1">
-            {filteredMenu.map(item => (
-              <button
-                key={item.id}
-                onClick={() => { onTabChange(item.id); onClose(); }}
+        {/* Main Navigation */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          <p className="px-3 mb-2 text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Main</p>
+          {filteredMain.map(item => (
+            <motion.button
+              key={item.id}
+              whileHover={{ x: 2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { navigate(item.path); onClose(); }}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium group relative",
+                isActive(item.path)
+                  ? "bg-[#0EA5E9]/10 text-[#0EA5E9]" 
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              )}
+            >
+              {isActive(item.path) && (
+                <motion.div layoutId="sidebar-indicator" className="absolute left-0 w-1 h-5 bg-[#0EA5E9] rounded-r-full" />
+              )}
+              <item.icon className={cn("w-4.5 h-4.5", isActive(item.path) ? "text-[#0EA5E9]" : "text-[#94A3B8] group-hover:text-[#0EA5E9]")} />
+              <span>{item.label}</span>
+              {item.id === 'messages' && (
+                <span className="ml-auto w-5 h-5 bg-[#0EA5E9] text-white text-[9px] font-bold rounded-full flex items-center justify-center">3</span>
+              )}
+            </motion.button>
+          ))}
+
+          <div className="my-4 border-t border-[#E2E8F0]" />
+
+          <p className="px-3 mb-2 text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Support</p>
+          {filteredSupport.map(item => (
+            <motion.button
+              key={item.id}
+              whileHover={{ x: 2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { navigate(item.path); onClose(); }}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium group",
+                isActive(item.path)
+                  ? "bg-[#0EA5E9]/10 text-[#0EA5E9]" 
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              )}
+            >
+              <item.icon className={cn("w-4.5 h-4.5", isActive(item.path) ? "text-[#0EA5E9]" : "text-[#94A3B8] group-hover:text-[#0EA5E9]")} />
+              <span>{item.label}</span>
+            </motion.button>
+          ))}
+
+          {currentUser?.role === 'Admin' && (
+            <>
+              <div className="my-4 border-t border-[#E2E8F0]" />
+              <p className="px-3 mb-2 text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest">Admin</p>
+              <motion.button
+                whileHover={{ x: 2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => { navigate('/analytics'); onClose(); }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium",
-                  activeTab === item.id 
-                    ? "bg-black text-white shadow-lg shadow-black/10" 
-                    : "text-gray-600 hover:bg-gray-100"
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium group",
+                  location.pathname === '/analytics'
+                    ? "bg-[#0EA5E9]/10 text-[#0EA5E9]" 
+                    : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
                 )}
               >
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </button>
-            ))}
-          </div>
-          
-          <div className="mt-auto">
-            <Card className="p-4 bg-orange-50 border-orange-100">
-               <p className="text-xs font-bold text-orange-800 mb-1">Lovi Support</p>
-               <p className="text-[10px] text-orange-600">Need help with your smart installations?</p>
-               <Button variant="ghost" className="p-0 text-[10px] uppercase font-bold text-orange-800 mt-2 hover:bg-transparent">Contact Us</Button>
-            </Card>
+                {location.pathname === '/analytics' && (
+                  <motion.div layoutId="sidebar-indicator" className="absolute left-0 w-1 h-5 bg-[#0EA5E9] rounded-r-full" />
+                )}
+                <Shield className={cn("w-4.5 h-4.5", location.pathname === '/analytics' ? "text-[#0EA5E9]" : "text-[#94A3B8] group-hover:text-[#0EA5E9]")} />
+                <span>Admin Panel</span>
+              </motion.button>
+            </>
+          )}
+        </div>
+
+        {/* Bottom Section */}
+        <div className="p-4 border-t border-[#E2E8F0] flex-shrink-0">
+          <div className="p-4 bg-gradient-to-br from-[#0EA5E9]/5 to-[#0EA5E9]/10 rounded-xl border border-[#0EA5E9]/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-[#0EA5E9] flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[#0F172A]">Need help?</p>
+                <p className="text-[9px] text-[#64748B]">We're here 24/7</p>
+              </div>
+            </div>
+            <button className="w-full py-2 bg-white text-[11px] font-bold text-[#0EA5E9] rounded-lg border border-[#0EA5E9]/20 hover:bg-[#0EA5E9]/5 transition-colors">
+              Contact Support
+            </button>
           </div>
         </div>
       </aside>
@@ -576,34 +1085,90 @@ const Sidebar = ({ isOpen, onClose, activeTab, onTabChange }: {
   );
 };
 
+const JobDetailsRoute = ({ 
+  onAcceptBid, 
+  onBid, 
+  onMarkCompleted, 
+  onViewWorkerProfile,
+  userLocation 
+}: { 
+  onAcceptBid: (jobId: string, bid: Bid) => void,
+  onBid: (jobId: string, amount: number, message: string) => void,
+  onMarkCompleted: (job: Job) => void,
+  onViewWorkerProfile: (worker: User) => void,
+  userLocation: { lat: number, lng: number } | null
+}) => {
+  const { id } = useParams<{ id: string }>();
+  const { jobs } = useStore();
+  const navigate = useNavigate();
+  const job = jobs.find(j => j.id === id);
+
+  if (!job) {
+    return <Navigate to="/" />;
+  }
+
+  return (
+    <JobDetailsView 
+      job={job} 
+      onClose={() => navigate(-1)} 
+      onAcceptBid={(bid) => onAcceptBid(job.id, bid)}
+      onBid={(amount, message) => onBid(job.id, amount, message)}
+      onMarkCompleted={onMarkCompleted}
+      onViewWorkerProfile={onViewWorkerProfile}
+      userLocation={userLocation}
+    />
+  );
+};
+
 // --- Page Fragments ---
 
-const JobFeed = ({ jobs, onSelectJob }: { jobs: Job[], onSelectJob: (job: Job) => void }) => {
+const categoryIcons: Record<string, React.ElementType> = {
+  Electrical: Zap,
+  Plumbing: Droplets,
+  Carpentry: Hammer,
+  'Smart Home': Camera,
+  Other: Wrench,
+};
+
+const JobFeed = ({ jobs, userLocation }: { 
+  jobs: Job[], 
+  userLocation: { lat: number, lng: number } | null
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState<JobCategory | 'All'>('All');
+  const [showAll, setShowAll] = useState(false);
+  const { currentUser } = useStore();
+  const navigate = useNavigate();
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          job.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = category === 'All' || job.category === category;
-    return matchesSearch && matchesCategory;
+    const isActive = job.status === 'Open' || job.status === 'Bidding';
+    
+    if (showAll) return matchesSearch && matchesCategory && isActive;
+
+    const distance = userLocation ? calculateDistance(userLocation.lat, userLocation.lng, job.location.lat, job.location.lng) : null;
+    const isNearby = distance === null || distance <= 100;
+    
+    return matchesSearch && matchesCategory && isActive && isNearby;
   });
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
           <input 
             type="text" 
-            placeholder="Search micro-jobs near you..." 
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none transition-all"
+            placeholder="Search jobs..." 
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]/20 focus:border-[#0EA5E9] transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <select 
-          className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none"
+          className="px-4 py-2.5 bg-white border border-[#E2E8F0] rounded-lg text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0EA5E9]/20 focus:border-[#0EA5E9] transition-all"
           value={category}
           onChange={(e) => setCategory(e.target.value as any)}
         >
@@ -616,59 +1181,124 @@ const JobFeed = ({ jobs, onSelectJob }: { jobs: Job[], onSelectJob: (job: Job) =
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredJobs.map(job => (
-          <motion.div layout key={job.id}>
-            <Card className="h-full flex flex-col">
-              <div className="p-5 flex-1 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className={cn(
-                    "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider",
-                    job.urgency === 'High' ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
-                  )}>
-                    {job.urgency} Urgency
-                  </div>
-                  <span className="text-lg font-bold">₹{job.budget}</span>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-bold leading-tight mb-1">{job.title}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">{job.description}</p>
-                </div>
+      {filteredJobs.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+          <div className="w-14 h-14 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-4">
+            <MapPin className="w-7 h-7 text-[#CBD5E1]" />
+          </div>
+          <h3 className="text-lg font-bold text-[#0F172A]">No jobs found nearby</h3>
+          <p className="text-sm text-[#64748B] max-w-xs mx-auto mt-1 mb-5">We couldn't find any active jobs within 100km of your location.</p>
+          <Button variant="outline" onClick={() => setShowAll(true)}>View All Available Jobs</Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredJobs.map((job, idx) => {
+            const isOwner = job.clientId === currentUser?.id;
+            const distance = userLocation && job.location 
+              ? calculateDistance(userLocation.lat, userLocation.lng, job.location.lat, job.location.lng)
+              : null;
+            const CatIcon = categoryIcons[job.category] || Wrench;
 
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                    <MapPin className="w-3 h-3" />
-                    {job.location.address}
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                    <Wrench className="w-3 h-3" />
-                    {job.category}
-                  </div>
-                </div>
-              </div>
+            return (
+              <motion.div
+                key={job.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+              >
+                <Card className="h-full flex flex-col group border border-[#E2E8F0] hover:border-[#0EA5E9]/30 hover:shadow-lg hover:shadow-[#0EA5E9]/5 transition-all rounded-xl overflow-hidden">
+                  {/* Top Accent */}
+                  <div className="h-1 bg-gradient-to-r from-[#0EA5E9]/0 via-[#0EA5E9]/20 to-[#0EA5E9]/0 group-hover:from-[#0EA5E9]/40 group-hover:via-[#0EA5E9]/60 group-hover:to-[#0EA5E9]/40 transition-all" />
 
-              <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                <div className="text-xs text-gray-500">
-                  Posted {formatDate(job.createdAt)}
-                </div>
-                <div className="flex gap-2">
-                  <Button className="text-xs py-1.5 h-auto" variant="ghost" onClick={() => onSelectJob(job)}>Details</Button>
-                  {store.getCurrentUser()?.role === 'Worker' && job.status === 'Open' && (
-                    <Button 
-                      className="text-xs py-1.5 h-auto" 
-                      variant="secondary"
-                      onClick={() => onSelectJob(job)}
-                    >
-                      Bid
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                  <div className="p-5 flex-1" onClick={() => navigate(`/job/${job.id}`)}>
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-[#0EA5E9]/10 flex items-center justify-center flex-shrink-0">
+                          <CatIcon className="w-4.5 h-4.5 text-[#0EA5E9]" />
+                        </div>
+                        <div>
+                          <span className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                            job.urgency === 'High' ? "bg-red-50 text-red-500" : "bg-[#F59E0B]/10 text-[#F59E0B]"
+                          )}>
+                            {job.urgency === 'High' ? 'Urgent' : 'Standard'}
+                          </span>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {distance !== null && (
+                              <span className="text-[10px] text-[#64748B] flex items-center gap-0.5">
+                                <MapPin className="w-3 h-3 text-[#0EA5E9]" />
+                                {formatDistance(distance)}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[#94A3B8]">• {job.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-lg font-bold text-[#0F172A] leading-none">₹{job.budget.toLocaleString()}</p>
+                        {job.bids.length > 0 && (
+                          <p className="text-[10px] font-semibold text-[#0EA5E9] mt-0.5">{job.bids.length} bid{job.bids.length > 1 ? 's' : ''}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Title & Description */}
+                    <h3 className="text-base font-bold text-[#0F172A] mb-1 group-hover:text-[#0EA5E9] transition-colors leading-snug">{job.title}</h3>
+                    <p className="text-sm text-[#64748B] leading-relaxed line-clamp-2">{job.description}</p>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      <span className="text-[10px] font-medium text-[#64748B] bg-[#F8FAFC] px-2 py-1 rounded-md border border-[#E2E8F0]">
+                        {job.location?.address?.split(',')[0] || 'Remote'}
+                      </span>
+                      <span className="text-[10px] font-medium text-[#64748B] bg-[#F8FAFC] px-2 py-1 rounded-md border border-[#E2E8F0]">
+                        Posted {formatDate(job.createdAt)}
+                      </span>
+                    </div>
+
+                    {/* Owner Proposals Preview */}
+                    {isOwner && job.bids.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-[#E2E8F0] space-y-1.5">
+                        <p className="text-[9px] font-bold text-[#94A3B8] uppercase tracking-wider">Recent Proposals</p>
+                        {job.bids.slice().reverse().slice(0, 2).map(bid => (
+                          <div key={bid.id} className="flex justify-between items-center text-[10px] bg-[#0EA5E9]/5 px-3 py-2 rounded-lg border border-[#0EA5E9]/10">
+                            <span className="font-semibold text-[#0F172A] truncate">{bid.workerName}</span>
+                            <span className="font-bold text-[#0EA5E9]">₹{bid.amount.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-5 py-3 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] text-[#94A3B8]">
+                      <Clock className="w-3 h-3" />
+                      {job.status === 'Open' ? 'Accepting bids' : 'In review'}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button className="text-[10px] py-1.5 h-auto font-semibold px-3" variant="ghost" onClick={() => navigate(`/job/${job.id}`)}>
+                        {isOwner ? 'Manage' : 'View Details'}
+                      </Button>
+                      {currentUser?.role === 'Worker' && (job.status === 'Open' || job.status === 'Bidding') && (
+                        <Button 
+                          className="text-[10px] py-1.5 h-auto font-semibold px-3" 
+                          variant="secondary"
+                          onClick={() => navigate(`/job/${job.id}`)}
+                        >
+                          Submit Bid
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -708,7 +1338,7 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
         <p className="text-gray-500 text-sm">Need a hand? Our professionals are ready to help.</p>
         <div className="flex gap-2 mt-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className={cn("h-1.5 flex-1 rounded-full", step >= i ? "bg-black" : "bg-gray-100")} />
+            <div key={i} className={cn("h-1.5 flex-1 rounded-full", step >= i ? "bg-sky-500" : "bg-gray-100")} />
           ))}
         </div>
       </div>
@@ -725,7 +1355,7 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
                     onClick={() => setFormData({ ...formData, category: cat })}
                     className={cn(
                       "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all",
-                      formData.category === cat ? "border-black bg-black text-white" : "border-gray-100 hover:border-gray-200"
+                      formData.category === cat ? "border-sky-500 bg-sky-500 text-white" : "border-gray-100 hover:border-gray-200"
                     )}
                   >
                     {cat === 'Electrical' && <Zap className="w-6 h-6" />}
@@ -778,26 +1408,26 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
             <div className="space-y-4">
               <label className="block text-sm font-bold mb-2">Upload Photos</label>
               <div className="grid grid-cols-2 gap-4">
-                 {formData.photos.map((p, i) => (
-                    <div key={i} className="aspect-square bg-gray-100 rounded-xl overflow-hidden relative group">
-                       <img src={p} className="w-full h-full object-cover" />
+                {formData.photos.map((p, i) => (
+                  <div key={i} className="aspect-square bg-gray-100 rounded-xl overflow-hidden relative group">
+                    <img src={p} alt="Uploaded photo" className="w-full h-full object-cover" />
                        <button 
-                        onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                        className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                       >
-                         <X className="w-4 h-4" />
-                       </button>
-                    </div>
-                 ))}
-                 {formData.photos.length < 4 && (
-                    <button 
-                      onClick={simulatePhotoUpload}
-                      className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-black transition-colors"
+                         onClick={() => setFormData(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
+                      className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <Camera className="w-6 h-6 text-gray-400" />
-                      <span className="text-[10px] font-bold uppercase text-gray-400">Add Photo</span>
+                      <X className="w-4 h-4" />
                     </button>
-                 )}
+                  </div>
+                ))}
+                {formData.photos.length < 4 && (
+                  <button 
+                    onClick={simulatePhotoUpload}
+                    className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-sky-500 transition-colors"
+                  >
+                    <Camera className="w-6 h-6 text-gray-400" />
+                    <span className="text-[10px] font-bold uppercase text-gray-400">Add Photo</span>
+                  </button>
+                )}
               </div>
               <p className="text-[10px] text-gray-400">Upload up to 4 photos to help workers quote accurately.</p>
             </div>
@@ -859,59 +1489,225 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
 // --- Main Application ---
 
 export default function App() {
-  const { jobs, users, reviews, currentUser, addJob, addBid, acceptBid, completeJob, addReview } = useStore();
-  const [activeTab, setActiveTab] = useState('feed');
+  const { jobs, users, reviews, currentUser, notifications, unreadCount, addJob, addBid, acceptBid, markJobCompleted, addReview, markNotificationRead, markAllNotificationsRead } = useStore();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [_showPostModal, setShowPostModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [jobToReview, setJobToReview] = useState<Job | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showWorkerProfile, setShowWorkerProfile] = useState(false);
+  const [selectedWorker, setSelectedWorker] = useState<User | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
+  const [, setInitError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  const MAP_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
+  const performInit = async () => {
+    setInitError(null);
+    setIsInitializing(true);
+    
+    // Safety timeout: force loading to false after 4 seconds
+    const timeout = setTimeout(() => {
+      console.warn('Initialization timed out, forcing UI to load');
+      setIsInitializing(false);
+    }, 4000);
 
-  const selectedJob = jobs.find(j => j.id === selectedJobId);
+    try {
+      // If store is already initialized, we can skip the wait
+      if ((store as any).initialized) {
+        setIsInitializing(false);
+        clearTimeout(timeout);
+        return;
+      }
+      await store.load();
+    } catch (err: any) {
+      console.error('Initialization error:', err);
+      setInitError(err.message || 'Connection failed.');
+    } finally {
+      clearTimeout(timeout);
+      setIsInitializing(false);
+    }
+  };
 
-  const handlePostJob = (data: any) => {
-    addJob({
-      ...data,
-      location: {
-        lat: 12.9716,
-        lng: 77.5946,
-        address: data.address
-      },
-      clientId: currentUser?.id || 'c1',
-      clientName: currentUser?.name || 'Guest'
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setUserLocation(prev => prev || { lat: 12.9716, lng: 77.5946 });
+        },
+        { enableHighAccuracy: true }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = store.onEvent((event) => {
+      if (event.type === 'new_job') {
+        if (currentUser?.role === 'Worker') {
+          const job = event.payload;
+          toast.success(`New Job: ${job.title} in ${job.category}!`, {
+            icon: '🆕',
+            duration: 5000,
+          });
+        }
+      } else if (event.type === 'new_bid') {
+        const { bid, job } = event.payload;
+        if (currentUser?.role === 'Client' && job?.client_id === currentUser.id) {
+          const workerName = users.find(u => u.id === bid.worker_id)?.name || 'A professional';
+          toast.success(`${workerName} just bid ₹${bid.amount} on your job: "${job.title}"`, {
+            icon: '💰',
+            duration: 6000,
+          });
+        }
+      } else if (event.type === 'job_completed') {
+        const job = event.payload;
+        if (currentUser?.id === job?.clientId || currentUser?.id === job?.assignedWorkerId) {
+          toast.success(`Job Completed: "${job.title}" is now finalized!`, {
+            icon: '✅',
+            duration: 8000,
+          });
+        }
+      }
     });
-    toast.success('Job posted successfully!');
-    setShowPostModal(false);
-    setActiveTab('my-jobs');
+
+    return () => unsubscribe();
+  }, [currentUser, users]);
+
+  useEffect(() => {
+    performInit();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser && (location.pathname === '/' || location.pathname === '/auth')) {
+      navigate('/marketplace', { replace: true });
+    }
+  }, [currentUser, location.pathname, navigate]);
+
+  const MAP_KEY = (import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY || (import.meta.env as any).GOOGLE_MAPS_PLATFORM_KEY || '')
+    .replace('PASTE_YOUR_GOOGLE_MAPS_KEY_HERE', '');
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-6 max-w-xs text-center">
+          <div className="w-20 h-20 bg-sky-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-sky-500/30 animate-pulse">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAbCAMAAAAqGX2oAAAAilBMVEVHcEz///////////////////////////////////////////////////////////////////////////////////8AAAD8/P0WFhaLi4vk5ur19fXc3NxYWFikpKStra2RkZG3t7cxMTHGxsYlJSXs7OzQ0NB9fX1mZmY7Ozs/Pz++vr5oiuhJSUnmDoC6AAAAFXRSTlMAxtSZ6ms3YM/3HorcFXdTCp/gRKSeo9f0AAABOklEQVQokX2T2XaDMAxETSHs2TMyi9khkLT9/9+rgcQxWTovtufqSDIWjN20PpquhUmWYW599qTgCwsdgrWOHQsvspwHX73iUas737znwOaW/xMHpir+oj7n+mqNne51/k2UdXIt6TKdTZngoPGuLpOoACrKk/m2/qIDnrdAW0CMQfcuTlpA+lviHJ2Rk7JOTP+CghL0A3hUKStknhYQZ2lSV6jqRFke0+/Q5mgI6aXUPD1D0wrEAwrqHp736IHLCmOVKorBVcAXM+fN+UpXSSCyugT/UU2YbDtvrr3oKeoFeIc0T1SKLfPDaXOJG2qagaK4KmlIVQX5GMFcoqZC2iLP2qxQHIF8rF2IjwqnebA/Bxz/nTht5hzvHfa0qbXdV+7ai//CMRZZPMNhT9rZm73hTjL2K3t39/8ArBs8+rwjYq0AAAAASUVORK5CYII=" alt="Lovi Icon" className="h-10 w-10 brightness-0 invert" />
+          </div>
+          <p className="text-gray-500 font-bold animate-pulse tracking-widest uppercase text-xs">Initializing Lovi...</p>
+      </div>
+    </div>
+  );
+};
+
+
+
+
+  if (!currentUser) {
+    return (
+      <>
+        <Toaster position="bottom-right" />
+        <Routes>
+          <Route path="/" element={<LandingPage onGetStarted={() => navigate('/auth')} />} />
+          <Route path="/auth" element={<Auth onBack={() => navigate('/')} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </>
+    );
+  }
+
+  const handlePostJob = async (data: any) => {
+    toast.loading('Posting your job...', { id: 'post-job' });
+    try {
+      // Get the actual authenticated user from Supabase to ensure RLS compliance
+      const { data: { user } } = await supabase.auth.getUser();
+      const postUserId = user?.id;
+      
+      // Fallback only if no auth user exists (for local/demo only - usually results in RLS error in production)
+      const finalUserId = postUserId || currentUser?.id || store.getCurrentUser()?.id;
+      const finalUserName = currentUser?.name || store.getCurrentUser()?.name || 'Guest';
+
+      if (!finalUserId) {
+        toast.error('You must be logged in to post a job.', { id: 'post-job' });
+        return;
+      }
+
+      await addJob({
+        ...data,
+        location: {
+          lat: userLocation?.lat || 12.9716,
+          lng: userLocation?.lng || 77.5946,
+          address: data.address
+        },
+        clientId: finalUserId,
+        clientName: finalUserName
+      });
+
+      toast.success('Job posted successfully!', { id: 'post-job' });
+      setShowPostModal(false);
+      navigate('/my-jobs');
+    } catch (err: any) {
+      console.error('Error posting job:', err);
+      const errorMessage = err.message || 'Failed to post job.';
+      const errorCode = err.code ? ` (Error ${err.code})` : '';
+      toast.error(`${errorMessage}${errorCode}`, { id: 'post-job' });
+    }
   };
 
-  const handleAcceptBid = (bid: Bid) => {
-    if (!selectedJob) return;
-    acceptBid(selectedJob.id, bid.id);
+  const handleRefresh = async () => {
+    toast.loading('Syncing data...', { id: 'refresh' });
+    try {
+      await store.load();
+      toast.success('Data synchronized!', { id: 'refresh' });
+    } catch (err) {
+      toast.error('Sync failed.', { id: 'refresh' });
+    }
+  };
+
+  const handleAcceptBid = (jobId: string, bid: Bid) => {
+    acceptBid(jobId, bid.id);
     toast.success(`Worker ${bid.workerName} selected!`);
-    setSelectedJobId(null);
   };
 
-  const handleBid = (amount: number, message: string) => {
-    if (!selectedJob || !currentUser) return;
-    addBid(selectedJob.id, {
+  const handleBid = (jobId: string, amount: number, message: string) => {
+    if (!currentUser) return;
+    addBid(jobId, {
       workerId: currentUser.id,
       workerName: currentUser.name,
       amount,
       message
     });
     toast.success('Bid submitted successfully!');
-    setSelectedJobId(null);
   };
 
-  const handleCompleteJob = (job: Job) => {
-    completeJob(job.id);
-    setJobToReview(job);
-    setShowReviewModal(true);
-    toast.success('Job marked as completed!');
+  const handleMarkCompleted = async (job: Job) => {
+    if (!currentUser) return;
+    const isBothMarked = await markJobCompleted(job.id, currentUser.role as 'Client' | 'Worker');
+    
+    if (isBothMarked) {
+      // Show the review modal to the Client to rate the Worker
+      if (currentUser.role === 'Client') {
+        setJobToReview(job);
+        setShowReviewModal(true);
+      } else if (currentUser.role === 'Worker' && job.clientId) {
+        // If worker marked it last, the client should eventually see it.
+        // In a real app, we'd notify the client. For this demo, if the client is 
+        // watching their 'My Jobs' page, they'll see the status change.
+      }
+      toast.success('Job fully completed and confirmed!');
+    } else {
+      toast.success('Work marked as completed. Waiting for other party...');
+    }
   };
 
   const handleReview = (rating: number, comment: string) => {
@@ -919,398 +1715,728 @@ export default function App() {
     addReview({
       jobId: jobToReview.id,
       fromId: currentUser.id,
-      toId: currentUser.id === jobToReview.clientId ? jobToReview.assignedWorkerId! : jobToReview.clientId,
+      toId: jobToReview.assignedWorkerId!,
       rating,
       comment
     });
-    toast.success('Feedback submitted!');
+    toast.success('Feedback submitted! Worker rating updated.');
     setShowReviewModal(false);
     setJobToReview(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <Toaster position="bottom-right" />
-      <Navbar 
-        onMenuClick={() => setIsSidebarOpen(true)} 
-        onNotifyClick={() => toast('No new notifications')} 
-        onProfileClick={() => setShowProfileModal(true)}
-      />
-      
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)} 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
+    <Layout>
+      {showNotifications && (
+        <NotificationPanel 
+          notifications={notifications}
+          onMarkRead={markNotificationRead}
+          onMarkAllRead={markAllNotificationsRead}
+          onClose={() => setShowNotifications(false)}
+          onNavigate={(jobId) => navigate(`/job/${jobId}`)}
         />
-        
-        <main className="flex-1 overflow-y-auto p-6 lg:p-10">
-          <AnimatePresence mode="wait">
-            {showPostModal ? (
-              <motion.div 
-                key="wizard"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                <PostJobWizard onPost={handlePostJob} />
-                <div className="max-w-xl mx-auto px-6">
-                  <Button variant="ghost" onClick={() => setShowPostModal(false)} className="w-full">Cancel</Button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div 
-                key={activeTab}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="max-w-7xl mx-auto h-full"
-              >
+      )}
+      <AnimatePresence mode="wait">
+        <Routes location={location}>
+          <Route path="/post-job" element={
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <PostJobWizard onPost={handlePostJob} />
+              <div className="max-w-xl mx-auto px-6">
+                <Button variant="ghost" onClick={() => navigate('/')} className="w-full">Cancel</Button>
+              </div>
+            </motion.div>
+          } />
+          
+          <Route path="*" element={
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="max-w-7xl mx-auto h-full"
+            >
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                      {activeTab === 'feed' && "Local Micro-Jobs"}
-                      {activeTab === 'my-jobs' && "My Projects"}
-                      {activeTab === 'analytics' && "Admin Dashboard"}
-                      {activeTab === 'reviews' && "Community Feedback"}
+                    <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+                      {location.pathname === '/dashboard' && "Dashboard"}
+                      {location.pathname === '/marketplace' && "Marketplace"}
+                      {location.pathname === '/radar' && "Maps"}
+                      {location.pathname === '/my-jobs' && "My Project Portfolio"}
+                      {location.pathname === '/analytics' && "Platform Insights"}
                     </h1>
-                    <p className="text-gray-500">
-                      {activeTab === 'feed' && "Find skilled local workers for your home tasks."}
-                      {activeTab === 'my-jobs' && "Track your ongoing and completed projects."}
-                      {activeTab === 'analytics' && "Monitor platform growth and worker density."}
-                      {activeTab === 'reviews' && "See how others are rating our Lovi-certified pros."}
+                    <p className="text-gray-500 font-medium">
+                      {location.pathname === '/dashboard' && "Welcome back! Here's your business overview."}
+                      {location.pathname === '/marketplace' && "Connect with top-rated local professionals for any task."}
+                      {location.pathname === '/radar' && "Scanning for micro-jobs in your area."}
+                      {location.pathname === '/my-jobs' && "Manage your active contracts and work history."}
+                      {location.pathname === '/analytics' && "Comprehensive overview of Lovi system performance."}
                     </p>
                   </div>
                   
-                  {currentUser?.role === 'Client' && activeTab !== 'analytics' && !showPostModal && (
+                  {currentUser?.role === 'Client' && location.pathname !== '/analytics' && location.pathname !== '/dashboard' && (
                     <Button 
                       variant="secondary" 
-                      onClick={() => setShowPostModal(true)}
-                      className="flex items-center gap-2"
+                      onClick={() => navigate('/post-job')}
+                      className="flex items-center gap-2 py-3 px-6 shadow-lg shadow-sky-500/20"
                     >
                       <Plus className="w-5 h-5" />
-                      Post a Job
+                      Post a New Job
                     </Button>
                   )}
                 </div>
 
-                <AnimatePresence>
-                  {selectedJob && (
-                    <JobDetailsView 
-                      job={selectedJob} 
-                      onClose={() => setSelectedJobId(null)}
-                      onAcceptBid={handleAcceptBid}
-                      onBid={handleBid}
-                    />
-                  )}
-                  {jobToReview && (
-                    <ReviewModal 
-                      isOpen={showReviewModal} 
-                      onClose={() => setShowReviewModal(false)}
-                      onReview={handleReview}
-                      job={jobToReview}
-                    />
-                  )}
-                  {showProfileModal && (
-                    <ProfileModal 
-                      isOpen={showProfileModal} 
-                      onClose={() => setShowProfileModal(false)} 
-                    />
-                  )}
-                </AnimatePresence>
+                  <AnimatePresence>
+                    {jobToReview && (
+                      <ReviewModal 
+                        isOpen={showReviewModal} 
+                        onClose={() => setShowReviewModal(false)}
+                        onReview={handleReview}
+                        job={jobToReview}
+                      />
+                    )}
+                    {showProfileModal && (
+                      <ProfileModal 
+                        isOpen={showProfileModal} 
+                        onClose={() => setShowProfileModal(false)} 
+                      />
+                    )}
+                    {showWorkerProfile && (
+                      <WorkerProfileModal
+                        worker={selectedWorker}
+                        isOpen={showWorkerProfile}
+                        onClose={() => setShowWorkerProfile(false)}
+                        reviews={reviews}
+                        users={users}
+                      />
+                    )}
+                  </AnimatePresence>
 
-                {activeTab === 'feed' && (
-                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="lg:col-span-2">
-                        <JobFeed 
-                          jobs={jobs.filter(j => j.status === 'Open' || j.status === 'Bidding')} 
-                          onSelectJob={(job) => setSelectedJobId(job.id)}
-                        />
-                      </div>
-                      <div className="hidden lg:block space-y-6">
-                        <div className="sticky top-24">
-                          <Card className="h-[400px] bg-gray-100 relative group overflow-hidden">
-                            {MAP_KEY ? (
-                              <APIProvider apiKey={MAP_KEY}>
-                                <GoogleMap
-                                  defaultCenter={{ lat: 12.9716, lng: 77.5946 }}
-                                  defaultZoom={11}
-                                  mapId="lovi_map"
-                                  internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-                                  style={{ width: '100%', height: '100%' }}
-                                >
-                                  {jobs.map(j => (
-                                    <AdvancedMarker key={j.id} position={j.location}>
-                                      <Pin background="#ea580c" borderColor="#000" glyphColor="#fff" />
+                  <Routes>
+                    <Route path="/job/:id" element={
+                      <JobDetailsRoute 
+                        onAcceptBid={handleAcceptBid}
+                        onBid={handleBid}
+                        onMarkCompleted={handleMarkCompleted}
+                        onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }}
+                        userLocation={userLocation}
+                      />
+                    } />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/marketplace" element={
+                      <Marketplace
+                        userLocation={userLocation}
+                        onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }}
+                      />
+                    } />
+
+                    <Route path="/radar" element={
+                      <div className="h-[calc(100vh-250px)] min-h-[500px]">
+                        <Card className="h-full bg-gray-100 relative group overflow-hidden border-2 border-white rounded-[40px] shadow-2xl">
+                          {MAP_KEY ? (
+                            <APIProvider apiKey={MAP_KEY}>
+                              <GoogleMap
+                                center={userLocation || { lat: 12.9716, lng: 77.5946 }}
+                                defaultZoom={11}
+                                mapId="lovi_full_map"
+                                style={{ width: '100%', height: '100%' }}
+                              >
+                                {userLocation && (
+                                  <AdvancedMarker position={{ lat: userLocation.lat, lng: userLocation.lng }} title="You">
+                                    <div className="w-12 h-12 bg-sky-500 rounded-full border-4 border-white shadow-xl flex items-center justify-center animate-bounce z-50">
+                                      {currentUser?.role === 'Worker' ? (
+                                        <Hammer className="w-6 h-6 text-white" />
+                                      ) : (
+                                        <UserIcon className="w-6 h-6 text-white" />
+                                      )}
+                                    </div>
+                                  </AdvancedMarker>
+                                )}
+                                {jobs
+                                  .filter(j => j.status === 'Open' || j.status === 'Bidding')
+                                  .map(j => (
+                                    <AdvancedMarker key={j.id} position={{ lat: j.location.lat, lng: j.location.lng }} onClick={() => navigate(`/job/${j.id}`)}>
+                                      <div className="w-10 h-10 bg-emerald-500 rounded-2xl shadow-xl flex items-center justify-center border-2 border-white hover:scale-125 transition-transform cursor-pointer">
+                                        <Wrench className="w-5 h-5 text-white" />
+                                      </div>
                                     </AdvancedMarker>
                                   ))}
-                                </GoogleMap>
-                              </APIProvider>
-                            ) : (
-                              <div className="h-full flex items-center justify-center p-8 text-center bg-gray-200">
-                                <div>
-                                  <MapIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                  <p className="text-sm text-gray-500 font-medium">Add Google Maps API Key to see jobs nearby</p>
+                              </GoogleMap>
+                            </APIProvider>
+                          ) : (
+                            <div className="h-full flex items-center justify-center p-12 text-center bg-white/50 backdrop-blur-md">
+                              <div className="max-w-sm">
+                                <div className="w-24 h-24 bg-sky-100 rounded-[40px] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                  <MapIcon className="w-12 h-12 text-sky-500" />
                                 </div>
-                              </div>
-                            )}
-                            <div className="absolute top-4 left-4 right-4 bg-white/90 backdrop-blur p-3 rounded-lg border border-gray-200 z-10 shadow-sm">
-                              <p className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                                <MapPin className="w-3 h-3 text-orange-600" />
-                                Nearby Jobs (Bangalore)
-                              </p>
-                            </div>
-                          </Card>
-                          
-                          <div className="mt-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="font-bold flex items-center gap-2">
-                                <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                                Top Technicians
-                              </h3>
-                              <Button variant="ghost" className="text-[10px] uppercase font-bold p-0">View All</Button>
-                            </div>
-                            <div className="space-y-3">
-                              {store.getUsers().filter(u => u.role === 'Worker').slice(0, 3).map(u => (
-                                <div key={u.id}>
-                                  <Card className="p-3 border-none shadow-none bg-gray-50/50">
-                                    <div className="flex items-center gap-3">
-                                      <img src={u.avatar} className="w-10 h-10 rounded-full object-cover" />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold flex items-center gap-1 truncate">
-                                          {u.name}
-                                          {u.verified && <CheckCircle2 className="w-3 h-3 text-blue-500" />}
-                                        </p>
-                                        <p className="text-[10px] text-gray-500 truncate">{u.skills?.join(', ')}</p>
-                                      </div>
-                                      <div className="text-xs font-bold flex items-center gap-1 text-yellow-700">
-                                        <Star className="w-3 h-3 fill-current" />
-                                        {u.rating}
-                                      </div>
-                                    </div>
-                                  </Card>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                   </div>
-                )}
-
-                {activeTab === 'reviews' && (
-                  <ReviewListView />
-                )}
-
-                {activeTab === 'my-jobs' && (
-                  <div className="space-y-4">
-                    {jobs.filter(j => j.clientId === currentUser?.id || j.assignedWorkerId === currentUser?.id).length === 0 ? (
-                      <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-                        <Wrench className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold">No active jobs yet</h3>
-                        <p className="text-gray-500">Post a job to get started with Lovi Works.</p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4">
-                        {jobs.filter(j => j.clientId === currentUser?.id || j.assignedWorkerId === currentUser?.id).map(job => (
-                          <div key={job.id}>
-                            <Card className="p-6">
-                            <div className="flex flex-col md:flex-row gap-6">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                                    job.status === 'Open' ? "bg-green-100 text-green-700" : 
-                                    job.status === 'Bidding' ? "bg-orange-100 text-orange-700" : 
-                                    job.status === 'In Progress' ? "bg-blue-100 text-blue-700" :
-                                    "bg-gray-100 text-gray-700"
-                                  )}>
-                                    {job.status}
-                                  </span>
-                                  <span className="text-xs text-gray-400 font-mono">{job.id}</span>
-                                </div>
-                                <h3 className="text-xl font-bold mb-2">{job.title}</h3>
-                                <p className="text-gray-600 text-sm mb-4">{job.description}</p>
-                                <div className="flex items-center gap-4 text-xs text-gray-500">
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {job.location.address}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Plus className="w-3 h-3" />
-                                    Posted {formatDate(job.createdAt)}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="md:w-64 flex flex-col justify-between items-end border-l border-gray-100 pl-6">
-                                <div className="text-right">
-                                  <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Budget</p>
-                                  <p className="text-2xl font-bold">₹{job.budget}</p>
-                                </div>
-                                <div className="space-y-2 w-full mt-4">
-                                  {job.bids.length > 0 && job.status === 'Bidding' && (
-                                    <p className="text-[10px] text-right text-orange-600 font-bold uppercase">{job.bids.length} Bids Received</p>
-                                  )}
-                                  <div className="flex gap-2 w-full mt-4">
-                                    <Button className="flex-1 text-sm" variant="outline" onClick={() => setSelectedJobId(job.id)}>View Details</Button>
-                                    {job.status === 'In Progress' && job.clientId === currentUser?.id && (
-                                      <Button className="flex-1 text-sm" variant="secondary" onClick={() => handleCompleteJob(job)}>Complete</Button>
-                                    )}
-                                  </div>
-                                </div>
+                                <h3 className="text-2xl font-black text-gray-900 mb-2">Satellite Radar Offline</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                                  To activate the job discovery radar, please add your Google Maps API Key to the project environment settings.
+                                </p>
                               </div>
                             </div>
-                          </Card>
-                        </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'analytics' && currentUser?.role === 'Admin' && (
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                      {[
-                        { label: 'Total Professionals', value: users.filter(u => u.role === 'Worker').length, change: '+12%', icon: UserIcon },
-                        { label: 'Total Clients', value: users.filter(u => u.role === 'Client').length, change: '+5%', icon: ThumbsUp },
-                        { label: 'Market Liquidity', value: `${Math.round((jobs.filter(j => j.status === 'Completed').length / jobs.length) * 100)}%`, change: 'Healthy', icon: Zap },
-                        { label: 'Total Revenue Flow', value: `₹${jobs.reduce((acc, curr) => acc + curr.budget, 0).toLocaleString()}`, change: '+18%', icon: TrendingUp },
-                      ].map((stat, i) => (
-                        <div key={i}>
-                          <Card className="p-6">
-                          <div className="flex items-start justify-between">
+                          )}
+                          <div className="absolute top-6 left-6 right-6 bg-white/95 backdrop-blur p-4 rounded-3xl border border-gray-100 z-10 shadow-xl flex items-center justify-between">
                             <div>
-                              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">{stat.label}</p>
-                              <h3 className="text-3xl font-bold">{stat.value}</h3>
-                              <p className={cn(
-                                "text-xs font-bold mt-1",
-                                stat.change.includes('+') || stat.change === 'Healthy' ? "text-green-600" : "text-orange-600"
-                              )}>{stat.change} overall</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-sky-600 mb-0.5">
+                                <Zap className="w-3 h-3 fill-current" />
+                                Live Job Radar
+                              </p>
+                              <h4 className="text-sm font-black text-gray-900">Scanning for micro-jobs in your area</h4>
                             </div>
-                            <div className="p-3 bg-gray-50 rounded-xl">
-                              <stat.icon className="w-6 h-6 text-black" />
+                            <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">
+                              {jobs.filter(j => j.status === 'Open').length} Active
                             </div>
                           </div>
                         </Card>
                       </div>
-                      ))}
-                    </div>
+                    } />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <Card className="p-8 lg:col-span-2">
-                        <div className="flex items-center justify-between mb-8">
-                          <div>
-                            <h3 className="text-xl font-bold">User Directory</h3>
-                            <p className="text-sm text-gray-500">Monitor activity and performance of all platform users.</p>
-                          </div>
-                          <div className="flex gap-2">
-                             <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold uppercase">{users.length} Total</span>
-                          </div>
-                        </div>
+                    <Route path="/my-jobs" element={<MyProjects onMarkCompleted={handleMarkCompleted} />} />
 
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left">
-                            <thead>
-                              <tr className="border-b border-gray-100">
-                                <th className="pb-4 text-[10px] uppercase font-bold text-gray-400">User</th>
-                                <th className="pb-4 text-[10px] uppercase font-bold text-gray-400 text-center">Role</th>
-                                <th className="pb-4 text-[10px] uppercase font-bold text-gray-400 text-center">Activity</th>
-                                <th className="pb-4 text-[10px] uppercase font-bold text-gray-400 text-center">Rating</th>
-                                <th className="pb-4 text-[10px] uppercase font-bold text-gray-400">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {users.map(user => {
-                                const userJobs = jobs.filter(j => j.clientId === user.id || j.assignedWorkerId === user.id);
-                                return (
-                                  <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="py-4">
-                                      <div className="flex items-center gap-3">
-                                        <img src={user.avatar} className="w-8 h-8 rounded-full object-cover" />
-                                        <div>
-                                          <p className="text-sm font-bold">{user.name}</p>
-                                          <p className="text-[10px] text-gray-400">{user.email}</p>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="py-4 text-center">
-                                      <span className={cn(
-                                        "px-2 py-0.5 rounded text-[10px] font-bold",
-                                        user.role === 'Worker' ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"
-                                      )}>
-                                        {user.role}
-                                      </span>
-                                    </td>
-                                    <td className="py-4 text-center">
-                                      <span className="text-xs font-bold text-gray-600">
-                                        {user.role === 'Worker' ? `${user.completedJobs || 0} Done` : `${jobs.filter(j => j.clientId === user.id).length} Posted`}
-                                      </span>
-                                    </td>
-                                    <td className="py-4 text-center">
-                                      <div className="flex items-center justify-center gap-1 text-xs font-bold text-yellow-600">
-                                        <Star className="w-3 h-3 fill-current" />
-                                        {user.rating || '0.0'}
-                                      </div>
-                                    </td>
-                                    <td className="py-4">
-                                      <div className="flex items-center gap-2">
-                                        <div className={cn("w-1.5 h-1.5 rounded-full", user.verified ? "bg-green-500" : "bg-gray-300")} />
-                                        <span className="text-[10px] font-bold uppercase text-gray-400">{user.verified ? 'Verified' : 'Pending'}</span>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </Card>
-
-                      <div className="space-y-6">
-                        <Card className="p-8">
-                          <h3 className="text-lg font-bold mb-6">Market Distribution</h3>
-                          <div className="space-y-6">
+                    <Route path="/analytics" element={
+                      currentUser?.role === 'Admin' ? (
+                        <div className="space-y-8">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             {[
-                              { label: 'Active Projects', value: jobs.filter(j => ['Open', 'Bidding', 'In Progress'].includes(j.status)).length, total: jobs.length },
-                              { label: 'Bidding Velocity', value: jobs.reduce((acc, curr) => acc + curr.bids.length, 0), total: users.length * 2 },
-                              { label: 'Review Loop', value: reviews.length, total: jobs.filter(j => j.status === 'Completed').length },
-                            ].map(stat => (
-                              <div key={stat.label} className="space-y-2">
-                                <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                                  <span className="text-gray-400">{stat.label}</span>
-                                  <span>{stat.value}</span>
+                              { label: 'Platform Professionals', value: users.filter(u => u.role === 'Worker').length, change: '+12%', icon: UserIcon },
+                              { label: 'Active Clients', value: users.filter(u => u.role === 'Client').length, change: '+5%', icon: ThumbsUp },
+                              { label: 'Market Liquidity', value: `${Math.round((jobs.filter(j => j.status === 'Completed').length / (jobs.length || 1)) * 100)}%`, change: 'Optimal', icon: Zap },
+                              { label: 'Project Volume', value: jobs.length, change: '+18%', icon: TrendingUp },
+                            ].map((stat, i) => (
+                              <div key={i}>
+                                <Card className="p-8 border-none shadow-sm">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">{stat.label}</p>
+                                    <h3 className="text-4xl font-black text-gray-900 tracking-tighter">{stat.value}</h3>
+                                    <p className={cn(
+                                      "text-[10px] font-black uppercase tracking-widest mt-2 px-2 py-0.5 rounded-full inline-block",
+                                      stat.change.includes('+') || stat.change === 'Optimal' ? "bg-green-50 text-green-600" : "bg-sky-50 text-sky-500"
+                                    )}>{stat.change}</p>
+                                  </div>
+                                  <div className="p-4 bg-gray-50 rounded-2xl">
+                                    <stat.icon className="w-7 h-7 text-sky-500" />
+                                  </div>
                                 </div>
-                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-black" 
-                                    style={{ width: `${Math.min(100, (stat.value / (stat.total || 1)) * 100)}%` }}
-                                  />
-                                </div>
-                              </div>
+                              </Card>
+                            </div>
                             ))}
                           </div>
-                        </Card>
 
-                        <Card className="p-8 bg-gray-50 border-none shadow-none">
-                           <div className="text-center">
-                              <TrendingUp className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                              <h4 className="font-bold mb-2">Platform Growth</h4>
-                              <p className="text-xs text-gray-500 mb-6">Users matching through Lovi has increased by 22% this quarter.</p>
-                              <Button className="w-full" variant="outline">Export Reports</Button>
-                           </div>
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2 space-y-8">
+                              <Card className="p-8 border-none shadow-sm">
+                                <div className="flex items-center justify-between mb-10">
+                                  <div>
+                                    <h3 className="text-xl font-black text-gray-900">User Management</h3>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Verification and Activity Audit</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                     <span className="px-4 py-2 bg-gray-50 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 border border-gray-100">{users.length} Registered</span>
+                                  </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left">
+                                    <thead>
+                                      <tr className="border-b border-gray-50">
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Identity</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Designation</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Impact</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Score</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                      {users.map(user => {
+                                        return (
+                                          <tr key={user.id} className="hover:bg-gray-50/50 transition-all group">
+                                            <td className="py-6">
+                                              <div className="flex items-center gap-4">
+                                                <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                                                <div>
+                                                  <p className="text-sm font-bold text-gray-900 group-hover:text-sky-600 transition-colors">{user.name}</p>
+                                                  <p className="text-[10px] text-gray-400 font-bold">{user.email}</p>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="py-6 text-center">
+                                              <span className={cn(
+                                                "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest",
+                                                user.role === 'Worker' ? "bg-sky-50 text-sky-600" : "bg-blue-50 text-blue-600"
+                                              )}>
+                                                {user.role}
+                                              </span>
+                                            </td>
+                                            <td className="py-6 text-center">
+                                              <span className="text-xs font-black text-gray-700">
+                                                {user.role === 'Worker' ? `${user.completedJobs || 0} Jobs` : `${jobs.filter(j => j.clientId === user.id).length} Posts`}
+                                              </span>
+                                            </td>
+                                            <td className="py-6 text-center">
+                                              <div className="flex items-center justify-center gap-1.5 text-xs font-black text-yellow-600 bg-yellow-50 px-2 py-1 rounded-lg inline-flex">
+                                                <Star className="w-3.5 h-3.5 fill-current" />
+                                                {user.rating || '0.0'}
+                                              </div>
+                                            </td>
+                                            <td className="py-6">
+                                              <div className="flex items-center gap-3">
+                                                <div className={cn("w-2.5 h-2.5 rounded-full shadow-inner", user.verified ? "bg-green-500 shadow-green-200" : "bg-gray-200 shadow-gray-100")} />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{user.verified ? 'Verified' : 'Review'}</span>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </Card>
+
+                              {/* Global Marketplace Feed */}
+                              <Card className="p-8 border-none shadow-sm">
+                                <div className="flex items-center justify-between mb-10">
+                                  <div>
+                                    <h3 className="text-xl font-black text-gray-900">Global Marketplace Feed</h3>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Platform-wide Project Activity with Bids & Assignments</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                     <span className="px-4 py-2 bg-gray-50 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 border border-gray-100">{jobs.length} Total Posts</span>
+                                  </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left">
+                                    <thead>
+                                      <tr className="border-b border-gray-50">
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Project & Client</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Category</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Budget</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Status</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Bids</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Assigned Worker</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                      {jobs.slice().reverse().map(job => {
+                                        const client = users.find(u => u.id === job.clientId);
+                                        const assignedWorker = job.assignedWorkerId ? users.find(u => u.id === job.assignedWorkerId) : null;
+                                        const isExpanded = expandedJobId === job.id;
+                                        const selectedBid = job.selectedBidId ? job.bids.find(b => b.id === job.selectedBidId) : null;
+                                        return (
+                                          <React.Fragment key={job.id}>
+                                            <tr 
+                                              className="hover:bg-gray-50/50 transition-all group cursor-pointer"
+                                              onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                                            >
+                                              <td className="py-6">
+                                                <div className="flex items-center gap-3">
+                                                  <div className="flex-shrink-0">
+                                                    {isExpanded ? (
+                                                      <ChevronDown className="w-4 h-4 text-sky-500" />
+                                                    ) : (
+                                                      <ChevronRight className="w-4 h-4 text-gray-300" />
+                                                    )}
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-sm font-bold text-gray-900 group-hover:text-sky-600 transition-colors">{job.title}</p>
+                                                    <p className="text-[10px] text-gray-400 font-bold">{formatDate(job.createdAt)}</p>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-600">
+                                                  {job.category}
+                                                </span>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className="text-xs font-black text-gray-700">₹{job.budget.toLocaleString()}</span>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className={cn(
+                                                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest",
+                                                  job.status === 'Completed' ? "bg-green-50 text-green-600" :
+                                                  job.status === 'In Progress' ? "bg-sky-50 text-sky-600" :
+                                                  job.status === 'Cancelled' ? "bg-red-50 text-red-600" :
+                                                  "bg-yellow-50 text-yellow-600"
+                                                )}>
+                                                  {job.status}
+                                                </span>
+                                              </td>
+                                              <td className="py-6 text-center">
+                                                <span className="text-xs font-black text-gray-700">{job.bids.length}</span>
+                                              </td>
+                                              <td className="py-6">
+                                                {assignedWorker ? (
+                                                  <div className="flex items-center gap-2">
+                                                    <img src={assignedWorker.avatar} alt={assignedWorker.name} className="w-6 h-6 rounded-lg object-cover" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-sky-600">{assignedWorker.name}</span>
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">—</span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                            {isExpanded && (
+                                              <tr>
+                                                <td colSpan={6} className="px-6 pb-6">
+                                                  <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    className="bg-gray-50 rounded-2xl p-6 space-y-6"
+                                                  >
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Posted by</p>
+                                                        <div className="flex items-center gap-2">
+                                                          <img src={client?.avatar} alt={client?.name || 'Client'} className="w-7 h-7 rounded-lg object-cover" />
+                                                          <span className="text-xs font-bold">{client?.name || 'Unknown'}</span>
+                                                        </div>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Urgency</p>
+                                                        <span className={cn(
+                                                          "text-xs font-bold",
+                                                          job.urgency === 'High' ? "text-red-600" : job.urgency === 'Medium' ? "text-yellow-600" : "text-green-600"
+                                                        )}>{job.urgency}</span>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Budget</p>
+                                                        <span className="text-sm font-black text-gray-900">₹{job.budget.toLocaleString()}</span>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Location</p>
+                                                        <span className="text-xs font-bold text-gray-600 truncate block max-w-[150px]">{job.location?.address}</span>
+                                                      </div>
+                                                    </div>
+
+                                                    <div>
+                                                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">All Bids ({job.bids.length})</p>
+                                                      {job.bids.length === 0 ? (
+                                                        <p className="text-xs text-gray-400 italic">No bids yet</p>
+                                                      ) : (
+                                                        <div className="space-y-2">
+                                                          {job.bids.map(bid => {
+                                                            const bidWorker = users.find(u => u.id === bid.workerId);
+                                                            const isSelected = job.selectedBidId === bid.id;
+                                                            return (
+                                                              <div key={bid.id} className={cn(
+                                                                "flex items-center justify-between p-3 rounded-xl border transition-all",
+                                                                isSelected 
+                                                                  ? "bg-sky-50 border-sky-300 shadow-sm" 
+                                                                  : "bg-white border-gray-200"
+                                                              )}>
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                  <img src={bidWorker?.avatar} alt={bid.workerName} className="w-8 h-8 rounded-xl object-cover flex-shrink-0" />
+                                                                  <div className="min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                      <span className="text-sm font-bold text-gray-900">{bid.workerName}</span>
+                                                                      {isSelected && (
+                                                                        <span className="px-2 py-0.5 bg-sky-500 text-white rounded text-[8px] font-black uppercase tracking-wider">Selected</span>
+                                                                      )}
+                                                                    </div>
+                                                                    {bid.message && (
+                                                                      <p className="text-[10px] text-gray-500 truncate max-w-[300px]">"{bid.message}"</p>
+                                                                    )}
+                                                                    <p className="text-[9px] text-gray-400">{formatDate(bid.createdAt)}</p>
+                                                                  </div>
+                                                                </div>
+                                                                <span className={cn(
+                                                                  "text-sm font-black flex-shrink-0 ml-4",
+                                                                  isSelected ? "text-sky-600" : "text-gray-700"
+                                                                )}>₹{bid.amount.toLocaleString()}</span>
+                                                              </div>
+                                                            );
+                                                          })}
+                                                        </div>
+                                                      )}
+                                                    </div>
+
+                                                    {assignedWorker && (
+                                                      <div className="flex items-center justify-between p-3 bg-sky-100 rounded-xl border border-sky-200">
+                                                        <div className="flex items-center gap-3">
+                                                          <CheckCircle2 className="w-5 h-5 text-sky-600" />
+                                                          <span className="text-sm font-bold text-sky-900">Assigned Worker:</span>
+                                                          <img src={assignedWorker.avatar} alt={assignedWorker.name} className="w-7 h-7 rounded-lg object-cover" />
+                                                          <span className="text-sm font-bold text-sky-900">{assignedWorker.name}</span>
+                                                        </div>
+                                                      </div>
+                                                    )}
+
+                                                    <div className="flex justify-end pt-2 border-t border-gray-200">
+                                                      <Button 
+                                                        variant="outline" 
+                                                        className="text-[10px] font-black uppercase tracking-widest py-2"
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`); }}
+                                                      >
+                                                        View Full Details →
+                                                      </Button>
+                                                    </div>
+                                                  </motion.div>
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </Card>
+
+                              {/* Completed Deliveries */}
+                              <Card className="p-8 border-none shadow-sm">
+                                <div className="flex items-center justify-between mb-10">
+                                  <div>
+                                    <h3 className="text-xl font-black text-gray-900">Completed Deliveries</h3>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Worker Success Logs</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                     <span className="px-4 py-2 bg-green-50 rounded-xl text-[10px] font-black uppercase tracking-widest text-green-600 border border-green-100">{jobs.filter(j => j.status === 'Completed').length} Finalized</span>
+                                  </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left">
+                                    <thead>
+                                      <tr className="border-b border-gray-50">
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Project</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Expert</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Revenue</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Satisfaction</th>
+                                        <th className="pb-6 text-[10px] uppercase font-black tracking-widest text-gray-400">Client</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                      {jobs.filter(j => j.status === 'Completed').slice().reverse().map(job => {
+                                        const worker = users.find(u => u.id === job.assignedWorkerId);
+                                        const client = users.find(u => u.id === job.clientId);
+                                        const review = reviews.find(r => r.jobId === job.id);
+                                        return (
+                                          <tr key={job.id} className="hover:bg-gray-50/50 transition-all group">
+                                            <td className="py-6">
+                                              <p className="text-sm font-bold text-gray-900 truncate max-w-[150px]">{job.title}</p>
+                                            </td>
+                                            <td className="py-6 text-center">
+                                              <div className="flex items-center justify-center gap-2">
+                                                <img src={worker?.avatar} alt={worker?.name || 'Worker'} className="w-6 h-6 rounded-lg object-cover" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-sky-600">{worker?.name}</span>
+                                              </div>
+                                            </td>
+                                            <td className="py-6 text-center">
+                                              <span className="text-xs font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg">${job.budget}</span>
+                                            </td>
+                                            <td className="py-6 text-center">
+                                              <div className="flex items-center justify-center gap-1 text-xs font-black text-yellow-600">
+                                                <Star className="w-3.5 h-3.5 fill-current" />
+                                                {review?.rating || 'N/A'}
+                                              </div>
+                                            </td>
+                                            <td className="py-6">
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{client?.name}</span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </Card>
+
+                              {/* Recent Reviews for Admin Visibility */}
+                              <Card className="p-8 border-none shadow-sm">
+                                <h3 className="text-xl font-black text-gray-900 mb-8">Platform Feedback Feed</h3>
+                                <div className="space-y-4">
+                                  {reviews.length === 0 ? (
+                                    <p className="text-center py-12 text-gray-400 text-sm font-bold uppercase tracking-widest border-2 border-dashed border-gray-50 rounded-3xl">No feedback records found</p>
+                                  ) : (
+                                    reviews.slice().reverse().map(review => {
+                                      const from = users.find(u => u.id === review.fromId);
+                                      const to = users.find(u => u.id === review.toId);
+                                      const job = jobs.find(j => j.id === review.jobId);
+                                      return (
+                                        <div key={review.id} className="p-5 bg-gray-50 rounded-3xl border border-gray-100">
+                                          <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                              <div className="flex -space-x-3">
+                                                <img src={from?.avatar} alt={from?.name || 'From'} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
+                                                <img src={to?.avatar} alt={to?.name || 'To'} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" />
+                                              </div>
+                                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                <span className="text-gray-900">{from?.name}</span> rated <span className="text-gray-900">{to?.name}</span>
+                                              </div>
+                                            </div>
+                                            <div className="flex text-yellow-500 bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
+                                              {[1,2,3,4,5].map(i => <Star key={i} className={cn("w-3 h-3", i <= review.rating ? "fill-current" : "text-gray-100")} />)}
+                                            </div>
+                                          </div>
+                                          <p className="text-sm font-bold text-gray-900 mb-1 truncate">{job?.title}</p>
+                                          <p className="text-sm text-gray-500 italic leading-relaxed">"{review.comment}"</p>
+                                          <p className="text-[9px] text-gray-300 font-black uppercase tracking-widest mt-3">{formatDate(review.createdAt)}</p>
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </Card>
+                            </div>
+
+                            <div className="space-y-8">
+                              <Card className="p-10 border-none shadow-sm bg-sky-600 text-white overflow-hidden relative">
+                                <Zap className="absolute -bottom-8 -right-8 w-48 h-48 text-sky-500/20 rotate-12" fill="currentColor" />
+                                <div className="relative z-10">
+                                  <h3 className="text-2xl font-black mb-8 leading-tight">System Distribution</h3>
+                                  <div className="space-y-8">
+                                    {[
+                                      { label: 'Market Velocity', value: jobs.filter(j => ['Open', 'Bidding', 'In Progress'].includes(j.status)).length, total: jobs.length, color: 'bg-sky-400' },
+                                      { label: 'Bidding Intensity', value: jobs.reduce((acc, curr) => acc + curr.bids.length, 0), total: users.length * 5, color: 'bg-white' },
+                                      { label: 'Trust Index (Reviews)', value: reviews.length, total: jobs.filter(j => j.status === 'Completed').length || 1, color: 'bg-yellow-400' },
+                                    ].map(stat => (
+                                      <div key={stat.label} className="space-y-3">
+                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                          <span className="opacity-80">{stat.label}</span>
+                                          <span>{stat.value}</span>
+                                        </div>
+                                        <div className="h-2 bg-sky-700/50 rounded-full overflow-hidden border border-sky-400/20">
+                                          <div 
+                                            className={cn("h-full transition-all duration-1000", stat.color)} 
+                                            style={{ width: `${Math.min(100, (stat.value / stat.total) * 100)}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </Card>
+
+                              <Card className="p-10 bg-white border-none shadow-sm text-center">
+                                 <TrendingUp className="w-12 h-12 mx-auto mb-6 text-sky-500 bg-sky-50 p-3 rounded-2xl" />
+                                 <h4 className="text-xl font-black text-gray-900 mb-3">Exponential Growth</h4>
+                                 <p className="text-sm text-gray-400 leading-relaxed font-medium mb-8">Platform matching efficiency has increased by 34% this month. Keep monitoring the trust index.</p>
+                                 <Button className="w-full py-4 text-xs font-black uppercase tracking-widest" variant="outline">Generate Audit Report</Button>
+                              </Card>
+
+                              <Card className="p-8 bg-gray-900 text-white rounded-[40px] border-none shadow-2xl">
+                                <h3 className="text-lg font-black mb-4">Quick Audit</h3>
+                                <div className="space-y-4">
+                                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-3xl">
+                                    <span className="text-xs font-bold text-gray-400">Flagged Jobs</span>
+                                    <span className="text-lg font-black text-red-400">0</span>
+                                  </div>
+                                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-3xl">
+                                    <span className="text-xs font-bold text-gray-400">Pending KYC</span>
+                                    <span className="text-lg font-black text-yellow-400">3</span>
+                                  </div>
+                                </div>
+                              </Card>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <Navigate to="/" />
+                      )
+                    } />
+                    <Route path="/saved" element={
+                      <Professionals onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }} />
+                    } />
+                    <Route path="/professionals" element={
+                      <Professionals onViewWorkerProfile={(worker) => { setSelectedWorker(worker); setShowWorkerProfile(true); }} />
+                    } />
+                    <Route path="/nearby" element={
+                      <div className="h-[calc(100vh-250px)] min-h-[500px]">
+                        <Card className="h-full bg-gray-100 relative group overflow-hidden border-2 border-white rounded-[40px] shadow-2xl">
+                          {MAP_KEY ? (
+                            <APIProvider apiKey={MAP_KEY}>
+                              <GoogleMap
+                                center={userLocation || { lat: 12.9716, lng: 77.5946 }}
+                                defaultZoom={11}
+                                mapId="lovi_full_map"
+                                style={{ width: '100%', height: '100%' }}
+                              >
+                                {userLocation && (
+                                  <AdvancedMarker position={{ lat: userLocation.lat, lng: userLocation.lng }} title="You">
+                                    <div className="w-12 h-12 bg-sky-500 rounded-full border-4 border-white shadow-xl flex items-center justify-center animate-bounce z-50">
+                                      <MapPin className="w-6 h-6 text-white" />
+                                    </div>
+                                  </AdvancedMarker>
+                                )}
+                                {jobs
+                                  .filter(j => j.status === 'Open' || j.status === 'Bidding')
+                                  .map(j => (
+                                    <AdvancedMarker key={j.id} position={{ lat: j.location.lat, lng: j.location.lng }} onClick={() => navigate(`/job/${j.id}`)}>
+                                      <div className="w-10 h-10 bg-emerald-500 rounded-2xl shadow-xl flex items-center justify-center border-2 border-white hover:scale-125 transition-transform cursor-pointer">
+                                        <Wrench className="w-5 h-5 text-white" />
+                                      </div>
+                                    </AdvancedMarker>
+                                  ))}
+                              </GoogleMap>
+                            </APIProvider>
+                          ) : (
+                            <div className="h-full flex items-center justify-center p-12 text-center bg-white/50 backdrop-blur-md">
+                              <div className="max-w-sm">
+                                <div className="w-24 h-24 bg-sky-100 rounded-[40px] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                  <MapIcon className="w-12 h-12 text-sky-500" />
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-900 mb-2">Nearby Experts Map</h3>
+                                <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                                  Add your Google Maps API Key to VITE_GOOGLE_MAPS_PLATFORM_KEY in .env to enable the nearby experts map.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          <div className="absolute top-6 left-6 right-6 bg-white/95 backdrop-blur p-4 rounded-3xl border border-gray-100 z-10 shadow-xl flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-sky-600 mb-0.5">
+                                <Zap className="w-3 h-3 fill-current" />
+                                Nearby Experts
+                              </p>
+                              <h4 className="text-sm font-black text-gray-900">Professionals around you</h4>
+                            </div>
+                            <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">
+                              {store.getUsers().filter(u => u.role === 'Worker').length} Available
+                            </div>
+                          </div>
                         </Card>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            )}
+                    } />
+                    <Route path="/messages" element={
+                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
+                          <Mail className="w-8 h-8 text-[#CBD5E1]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#0F172A]">Messages</h3>
+                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Your conversations with professionals and clients will appear here.</p>
+                        <Button variant="secondary" onClick={() => navigate('/marketplace')}>Browse Marketplace</Button>
+                      </div>
+                    } />
+                    <Route path="/notifications" element={
+                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
+                          <Bell className="w-8 h-8 text-[#CBD5E1]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#0F172A]">Notifications</h3>
+                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Stay updated with job alerts, bid responses, and platform announcements.</p>
+                        <Button variant="secondary" onClick={() => navigate('/marketplace')}>Browse Jobs</Button>
+                      </div>
+                    } />
+                    <Route path="/settings" element={
+                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
+                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
+                          <Settings className="w-8 h-8 text-[#CBD5E1]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#0F172A]">Settings</h3>
+                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Manage your account preferences, notifications, and privacy settings.</p>
+                        <Button variant="secondary">Account Settings</Button>
+                      </div>
+                    } />
+                  </Routes>
+                </motion.div>
+              } />
+            </Routes>
           </AnimatePresence>
-        </main>
-      </div>
-    </div>
+    </Layout>
   );
 }
-
