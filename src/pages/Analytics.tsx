@@ -651,6 +651,194 @@ export function Analytics() {
             </div>
           </Card>
 
+          {/* Services Rendered */}
+          <Card className="p-8 border-none shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-xl font-black text-gray-900">Services Rendered</h3>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Every completed service: who requested, who did it, and what it cost</p>
+              </div>
+              <span className="px-4 py-2 bg-blue-50 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 border border-blue-100">{completed.length} Services</span>
+            </div>
+            <div className="overflow-x-auto mb-8">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-gray-50">
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400">Service</th>
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Category</th>
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Client</th>
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Worker</th>
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Amount</th>
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Rating</th>
+                    <th className="pb-4 text-[10px] uppercase font-black tracking-widest text-gray-400 text-center">Completed</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {completed.slice().reverse().map(job => {
+                    const client = users.find(u => u.id === job.clientId);
+                    const worker = users.find(u => u.id === job.assignedWorkerId);
+                    const review = reviews.find(r => r.jobId === job.id);
+                    return (
+                      <tr key={job.id} className="hover:bg-gray-50/50 transition-all group">
+                        <td className="py-4">
+                          <p className="text-sm font-bold text-gray-900 truncate max-w-[180px]">{job.title}</p>
+                        </td>
+                        <td className="py-4 text-center">
+                          <span className="px-2.5 py-1 bg-gray-50 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-600">{job.category}</span>
+                        </td>
+                        <td className="py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <img src={client?.avatar} alt={client?.name || ''} className="w-6 h-6 rounded-lg object-cover" />
+                            <span className="text-[10px] font-bold text-gray-600">{client?.name || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <img src={worker?.avatar} alt={worker?.name || ''} className="w-6 h-6 rounded-lg object-cover" />
+                            <span className="text-[10px] font-black text-sky-600">{worker?.name || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 text-center">
+                          <span className="text-xs font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg">₹{job.budget.toLocaleString()}</span>
+                        </td>
+                        <td className="py-4 text-center">
+                          <div className="flex items-center justify-center gap-1 text-xs font-black text-yellow-600">
+                            <Star className="w-3.5 h-3.5 fill-current" />
+                            {review?.rating || '—'}
+                          </div>
+                        </td>
+                        <td className="py-4 text-center">
+                          <span className="text-[10px] font-bold text-gray-400">{formatDate(job.createdAt)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {completed.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-sm text-gray-400 font-bold uppercase tracking-widest">No services completed yet</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Grouped by Client */}
+            <div className="mb-8">
+              <h4 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
+                What Clients Paid For
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {clients.sort((a, b) => {
+                  const aTotal = completed.filter(j => j.clientId === a.id).reduce((s, j) => s + j.budget, 0);
+                  const bTotal = completed.filter(j => j.clientId === b.id).reduce((s, j) => s + j.budget, 0);
+                  return bTotal - aTotal;
+                }).slice(0, 10).map(client => {
+                  const clientJobs = completed.filter(j => j.clientId === client.id);
+                  const totalSpent = clientJobs.reduce((s, j) => s + j.budget, 0);
+                  if (!clientJobs.length) return null;
+                  return (
+                    <div key={client.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3 mb-3">
+                        <img src={client.avatar} alt={client.name} className="w-8 h-8 rounded-xl object-cover border-2 border-white shadow-sm" />
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{client.name}</p>
+                          <p className="text-[10px] font-bold text-gray-400">{clientJobs.length} jobs · ₹{totalSpent.toLocaleString()} total</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        {clientJobs.slice().reverse().slice(0, 5).map(job => {
+                          const worker = users.find(u => u.id === job.assignedWorkerId);
+                          const review = reviews.find(r => r.jobId === job.id);
+                          return (
+                            <div key={job.id} className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-gray-900 truncate">{job.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[9px] font-bold text-gray-400">{job.category}</span>
+                                  {worker && (
+                                    <span className="text-[9px] font-bold text-sky-600">→ {worker.name}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                <span className="text-[10px] font-black text-green-600">₹{job.budget.toLocaleString()}</span>
+                                {review && (
+                                  <span className="flex items-center gap-0.5 text-[9px] font-bold text-yellow-600">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                    {review.rating}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Grouped by Worker */}
+            <div>
+              <h4 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-sky-500" />
+                What Workers Completed
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {workers.sort((a, b) => {
+                  const aTotal = completed.filter(j => j.assignedWorkerId === a.id).reduce((s, j) => s + j.budget, 0);
+                  const bTotal = completed.filter(j => j.assignedWorkerId === b.id).reduce((s, j) => s + j.budget, 0);
+                  return bTotal - aTotal;
+                }).slice(0, 10).map(worker => {
+                  const workerJobs = completed.filter(j => j.assignedWorkerId === worker.id);
+                  const totalEarned = workerJobs.reduce((s, j) => s + j.budget, 0);
+                  if (!workerJobs.length) return null;
+                  return (
+                    <div key={worker.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3 mb-3">
+                        <img src={worker.avatar} alt={worker.name} className="w-8 h-8 rounded-xl object-cover border-2 border-white shadow-sm" />
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{worker.name}</p>
+                          <p className="text-[10px] font-bold text-gray-400">{workerJobs.length} jobs · ₹{totalEarned.toLocaleString()} earned</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        {workerJobs.slice().reverse().slice(0, 5).map(job => {
+                          const client = users.find(u => u.id === job.clientId);
+                          const review = reviews.find(r => r.jobId === job.id);
+                          return (
+                            <div key={job.id} className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-gray-900 truncate">{job.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[9px] font-bold text-gray-400">{job.category}</span>
+                                  {client && (
+                                    <span className="text-[9px] font-bold text-blue-600">for {client.name}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                <span className="text-[10px] font-black text-green-600">₹{job.budget.toLocaleString()}</span>
+                                {review && (
+                                  <span className="flex items-center gap-0.5 text-[9px] font-bold text-yellow-600">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                    {review.rating}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+
           {/* Reviews Feed */}
           <Card className="p-8 border-none shadow-sm">
             <div className="flex items-center justify-between mb-8">
