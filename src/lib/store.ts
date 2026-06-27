@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Job, User, Bid, Review, JobCategory, Location, Notification } from '../types';
+import { Job, User, Bid, Review, JobCategory, Location, Notification, Message } from '../types';
 import { Database } from '../database.types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -8,12 +8,19 @@ type BidRow = Database['public']['Tables']['bids']['Row'];
 type ReviewRow = Database['public']['Tables']['reviews']['Row'];
 type NotificationRow = Database['public']['Tables']['notifications']['Row'];
 
+function getGenderAvatarSeed(gender: string | null | undefined, id: string): string {
+  if (gender === 'male') return `male-${id}`;
+  if (gender === 'female') return `female-${id}`;
+  return id;
+}
+
 class LoviStore {
   public readonly supabase = supabase;
   private users: User[] = [];
   private jobs: Job[] = [];
   private reviews: Review[] = [];
   private notifications: Notification[] = [];
+  private messages: Message[] = [];
   private currentUser: User | null = null;
   private initialized = false;
   private initializing = false;
@@ -27,12 +34,14 @@ class LoviStore {
           // 1. Optimistic Update: Set basic user info immediately to trigger UI transition
           const isNewUser = !this.currentUser || this.currentUser.id !== session.user.id;
           if (isNewUser) {
+            const metadataGender = session.user.user_metadata?.gender as string | undefined;
             this.currentUser = {
               id: session.user.id,
               name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Lovi User',
               email: session.user.email || '',
               role: session.user.user_metadata?.role || 'Client',
-              avatar: session.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`,
+              gender: metadataGender as 'male' | 'female' | 'other' | undefined,
+              avatar: session.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${getGenderAvatarSeed(metadataGender, session.user.id)}`,
             };
             this.notify();
           }
@@ -54,7 +63,7 @@ class LoviStore {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, name, email, role, avatar_url, bio, skills, rating, completed_jobs, verified')
+        .select('id, name, email, role, avatar_url, gender, bio, skills, rating, completed_jobs, verified')
         .eq('id', userId)
         .single();
       
@@ -92,6 +101,15 @@ class LoviStore {
     return this.notifications;
   }
 
+  getMessages() {
+    return this.messages;
+  }
+
+  getUnreadMessageCount() {
+    if (!this.currentUser) return 0;
+    return this.messages.filter(m => m.receiverId === this.currentUser!.id && !m.isRead).length;
+  }
+
   getUnreadNotificationCount() {
     return this.notifications.filter(n => !n.isRead).length;
   }
@@ -102,7 +120,8 @@ class LoviStore {
       name: profile.name,
       email: profile.email,
       role: profile.role as 'Client' | 'Worker' | 'Admin',
-      avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.id}`,
+      gender: (profile.gender as 'male' | 'female' | 'other') || undefined,
+      avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${getGenderAvatarSeed(profile.gender, profile.id)}`,
       bio: profile.bio || undefined,
       skills: (profile.skills as JobCategory[]) || undefined,
       rating: profile.rating || undefined,
@@ -383,6 +402,56 @@ class LoviStore {
     this.notify();
   }
 
+  async fetchMessages() {
+    if (!this.currentUser) return;
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${this.currentUser.id},receiver_id.eq.${this.currentUser.id}`)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return;
+    }
+
+    this.messages = (data || []).map(r => ({
+      id: r.id,
+      senderId: r.sender_id,
+      receiverId: r.receiver_id,
+      content: r.content,
+      isRead: r.is_read || false,
+      createdAt: r.created_at || new Date().toISOString(),
+    }));
+    this.notify();
+  }
+
+  async sendMessage(receiverId: string, content: string) {
+    if (!this.currentUser) return;
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: this.currentUser.id,
+        receiver_id: receiverId,
+        content,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await this.fetchMessages();
+    return data;
+  }
+
+  async markMessageRead(messageId: string) {
+    await supabase.from('messages').update({ is_read: true }).eq('id', messageId);
+    const msg = this.messages.find(m => m.id === messageId);
+    if (msg) msg.isRead = true;
+    this.notify();
+  }
+
   private mapNotification(row: NotificationRow): Notification {
     return {
       id: row.id,
@@ -449,7 +518,8 @@ class LoviStore {
         this.loadUsers(),
         this.fetchJobs(),
         this.loadReviews(),
-        this.fetchNotifications()
+        this.fetchNotifications(),
+        this.fetchMessages()
       ]);
       
       this.initialized = true;
@@ -484,6 +554,30 @@ class LoviStore {
         if (payload.eventType === 'INSERT' && this.currentUser && payload.new.user_id === this.currentUser.id) {
           this.notifications.unshift(this.mapNotification(payload.new as NotificationRow));
           this.notify();
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+        if (payload.eventType === 'INSERT' && this.currentUser) {
+          const msg = payload.new as any;
+          if (msg.sender_id === this.currentUser.id || msg.receiver_id === this.currentUser.id) {
+            this.messages.unshift({
+              id: msg.id,
+              senderId: msg.sender_id,
+              receiverId: msg.receiver_id,
+              content: msg.content,
+              isRead: msg.is_read || false,
+              createdAt: msg.created_at || new Date().toISOString(),
+            });
+            this.notify();
+          }
+        }
+        if (payload.eventType === 'UPDATE' && this.currentUser) {
+          const msg = payload.new as any;
+          const existing = this.messages.find(m => m.id === msg.id);
+          if (existing) {
+            existing.isRead = msg.is_read || false;
+            this.notify();
+          }
         }
       })
       .subscribe();

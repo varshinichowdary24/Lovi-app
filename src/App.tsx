@@ -64,9 +64,10 @@ import { LandingPage } from './components/LandingPage';
 import { Layout } from './components/Layout';
 import { Button, Card } from './components/ui';
 import { Dashboard } from './pages/Dashboard';
-import { MyProjects } from './pages/MyProjects';
 import { Marketplace } from './pages/Marketplace';
+import { MyProjects } from './pages/MyProjects';
 import { Professionals } from './pages/Professionals';
+import { Messages } from './components/Messages';
 
 const WorkerProfileModal = ({ worker, isOpen, onClose, reviews, users }: {
   worker: User | null;
@@ -1305,6 +1306,10 @@ const JobFeed = ({ jobs, userLocation }: {
 
 const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
   const [step, setStep] = useState(1);
+  const [uploading, setUploading] = useState(false);
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -1315,20 +1320,57 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
     photos: [] as string[]
   });
 
-  const next = () => setStep(s => s + 1);
-  const prev = () => setStep(s => s - 1);
+  const next = () => { setShowPhotoPicker(false); setStep(s => s + 1); };
+  const prev = () => { setShowPhotoPicker(false); setStep(s => s - 1); };
 
-  const simulatePhotoUpload = () => {
-    const urls = [
-      'https://images.unsplash.com/photo-1558403194-611308249627?w=800&q=80',
-      'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80',
-      'https://images.unsplash.com/photo-1595844730298-b9f0ff98ffd0?w=800&q=80'
-    ];
+  const uploadToSupabase = async (file: File) => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) {
+      toast.error('You must be signed in to upload photos');
+      return;
+    }
+
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const filePath = `public/${fileName}`;
+
+    setUploading(true);
+    const { data, error } = await supabase.storage
+      .from('job-photos')
+      .upload(filePath, file, { upsert: false });
+
+    if (error) {
+      toast.error('Failed to upload photo: ' + error.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('job-photos')
+      .getPublicUrl(filePath);
+
     setFormData(prev => ({
       ...prev,
-      photos: [...prev.photos, urls[Math.floor(Math.random() * urls.length)]]
+      photos: [...prev.photos, publicUrl]
     }));
+    setUploading(false);
     toast.success('Photo added!');
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadToSupabase(file);
+    }
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
+  const handleGalleryPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadToSupabase(file);
+    }
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
   return (
@@ -1420,13 +1462,62 @@ const PostJobWizard = ({ onPost }: { onPost: (data: any) => void }) => {
                   </div>
                 ))}
                 {formData.photos.length < 4 && (
-                  <button 
-                    onClick={simulatePhotoUpload}
-                    className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-sky-500 transition-colors"
-                  >
-                    <Camera className="w-6 h-6 text-gray-400" />
-                    <span className="text-[10px] font-bold uppercase text-gray-400">Add Photo</span>
-                  </button>
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowPhotoPicker(true)}
+                      disabled={uploading}
+                      className="aspect-square w-full border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-sky-500 transition-colors disabled:opacity-50"
+                    >
+                      {uploading ? (
+                        <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Camera className="w-6 h-6 text-gray-400" />
+                      )}
+                      <span className="text-[10px] font-bold uppercase text-gray-400">
+                        {uploading ? 'Uploading...' : 'Add Photo'}
+                      </span>
+                    </button>
+
+                    {showPhotoPicker && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowPhotoPicker(false)} />
+                        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                          <button
+                            onClick={() => { cameraInputRef.current?.click(); setShowPhotoPicker(false); }}
+                            className="w-full px-4 py-3 text-sm font-medium text-left hover:bg-gray-50 flex items-center gap-3"
+                          >
+                            <Camera className="w-4 h-4 text-sky-500" />
+                            Take Photo
+                          </button>
+                          <button
+                            onClick={() => { galleryInputRef.current?.click(); setShowPhotoPicker(false); }}
+                            className="w-full px-4 py-3 text-sm font-medium text-left hover:bg-gray-50 flex items-center gap-3 border-t border-gray-100"
+                          >
+                            <span className="w-4 h-4 flex items-center justify-center text-sky-500">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            </span>
+                            Upload from Gallery
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleCameraCapture}
+                    />
+                    <input
+                      ref={galleryInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleGalleryPick}
+                    />
+                  </div>
                 )}
               </div>
               <p className="text-[10px] text-gray-400">Upload up to 4 photos to help workers quote accurately.</p>
@@ -2400,16 +2491,7 @@ export default function App() {
                         </Card>
                       </div>
                     } />
-                    <Route path="/messages" element={
-                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
-                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
-                          <Mail className="w-8 h-8 text-[#CBD5E1]" />
-                        </div>
-                        <h3 className="text-xl font-bold text-[#0F172A]">Messages</h3>
-                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Your conversations with professionals and clients will appear here.</p>
-                        <Button variant="secondary" onClick={() => navigate('/marketplace')}>Browse Marketplace</Button>
-                      </div>
-                    } />
+                    <Route path="/messages" element={<Messages />} />
                     <Route path="/notifications" element={
                       <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
                         <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">

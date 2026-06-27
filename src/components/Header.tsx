@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
+import { store } from '../lib/store';
 import { cn } from '../lib/utils';
 import {
   Menu, Search, Bell, Mail, ChevronDown, User as UserIcon, Settings, LogOut, Award
@@ -15,7 +17,9 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, onToggleNotifications, onProfileClick, onLogoClick, unreadCount }: HeaderProps) {
-  const { currentUser } = useStore();
+  const { currentUser, getUnreadMessageCount } = useStore();
+  const navigate = useNavigate();
+  const unreadMessages = getUnreadMessageCount();
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -60,9 +64,13 @@ export function Header({ onMenuClick, onToggleNotifications, onProfileClick, onL
       </div>
 
       <div className="flex items-center gap-2">
-        <button className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group">
+        <button onClick={() => navigate('/messages')} className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group">
           <Mail className="w-5 h-5 text-[#64748B] group-hover:text-[#0EA5E9] transition-colors" />
-          <span className="absolute top-1 right-1 w-4 h-4 bg-[#0EA5E9] text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-white">3</span>
+          {unreadMessages > 0 && (
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-[#0EA5E9] text-white text-[8px] font-bold rounded-full flex items-center justify-center px-1 border border-white">
+              {unreadMessages > 9 ? '9+' : unreadMessages}
+            </span>
+          )}
         </button>
 
         <button className="relative p-2 hover:bg-[#F8FAFC] rounded-lg transition-colors group" onClick={onToggleNotifications}>
@@ -114,7 +122,7 @@ export function Header({ onMenuClick, onToggleNotifications, onProfileClick, onL
                   <UserMenuItem icon={Award} label="Badges & Achievements" onClick={() => setShowUserMenu(false)} />
                 </div>
                 <div className="p-1.5 border-t border-[#E2E8F0]">
-                  <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors">
+                  <button onClick={() => { store.signOut(); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors">
                     <LogOut className="w-4 h-4" />
                     Sign Out
                   </button>

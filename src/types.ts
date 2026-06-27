@@ -18,6 +18,7 @@ export interface User {
   name: string;
   email: string;
   role: 'Client' | 'Worker' | 'Admin';
+  gender?: 'male' | 'female' | 'other';
   avatar?: string;
   bio?: string;
   skills?: JobCategory[];
@@ -66,6 +67,15 @@ export interface Review {
 }
 
 export type NotificationType = 'new_job' | 'new_bid' | 'bid_accepted' | 'new_review' | 'job_completed';
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
 export interface Notification {
   id: string;

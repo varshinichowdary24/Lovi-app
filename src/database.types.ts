@@ -183,6 +183,7 @@ export type Database = {
           bio: string | null
           completed_jobs: number | null
           email: string
+          gender: string | null
           id: string
           name: string
           rating: number | null
@@ -196,6 +197,7 @@ export type Database = {
           bio?: string | null
           completed_jobs?: number | null
           email: string
+          gender?: string | null
           id: string
           name: string
           rating?: number | null
@@ -209,6 +211,7 @@ export type Database = {
           bio?: string | null
           completed_jobs?: number | null
           email: string
+          gender?: string | null
           id?: string
           name?: string
           rating?: number | null

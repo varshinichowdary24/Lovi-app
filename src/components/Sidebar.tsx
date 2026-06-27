@@ -15,7 +15,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarProps) {
-  const { currentUser, unreadCount } = useStore();
+  const { currentUser, unreadCount, getUnreadMessageCount } = useStore();
+  const unreadMessages = getUnreadMessageCount();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,7 +29,7 @@ export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarP
   ];
 
   const supportItems = [
-    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages', badge: 3 },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages', badge: unreadMessages },
     { id: 'notifications', label: 'Notifications', icon: Bell, path: '/notifications', badge: unreadCount },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
   ];
