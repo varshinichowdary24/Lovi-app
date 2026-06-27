@@ -14,13 +14,11 @@ import {
   Lock,
   Star,
   Mail,
-  ChevronRight,
-  BarChart3,
-  Activity,
   Network,
   Award,
   Quote
 } from 'lucide-react';
+import { HeroVisual } from './HeroVisual';
 import { cn } from '../lib/utils';
 
 interface LandingPageProps {
@@ -175,84 +173,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </div>
             </motion.div>
 
-            {/* Right - Dashboard Mockup */}
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="hidden lg:block"
-            >
-              <motion.div
-                animate={{ y: [-8, 8, -8] }}
-                transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
-                className="relative"
-              >
-                <div className="absolute inset-0 bg-blue-500/5 blur-[60px] rounded-3xl" />
-                <div className="relative bg-gradient-to-b from-navy-800/80 to-navy-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl shadow-blue-500/5 rotate-[2deg]">
-                  {/* Dashboard Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
-                      </div>
-                      <span className="text-xs font-bold text-white/40 tracking-wider uppercase">Dashboard</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10" />
-                      <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/20" />
-                    </div>
-                  </div>
-
-                  {/* Metric Cards */}
-                  <div className="grid grid-cols-3 gap-3 mb-6">
-                    {[
-                      { label: 'Revenue', value: '$12.4k', change: '+24%' },
-                      { label: 'Active Jobs', value: '89', change: '+12%' },
-                      { label: 'Match Rate', value: '98%', change: '+5%' },
-                    ].map((metric, i) => (
-                      <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/5">
-                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-1">{metric.label}</div>
-                        <div className="text-lg font-black text-white">{metric.value}</div>
-                        <div className="text-[10px] font-bold text-emerald-400">{metric.change}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Chart Area */}
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/5 mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">Weekly Activity</span>
-                      <Activity className="w-3.5 h-3.5 text-blue-400" />
-                    </div>
-                    <div className="flex items-end gap-2 h-20">
-                      {[35, 55, 45, 70, 60, 85, 75].map((h, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ height: 0 }}
-                          animate={{ height: `${h}%` }}
-                          transition={{ delay: 0.8 + i * 0.1, duration: 0.5 }}
-                          className="flex-1 bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-sm opacity-60 hover:opacity-100 transition-opacity"
-                        />
-                      ))}
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
-                        <div key={i} className="flex-1 text-[8px] font-bold text-white/20 text-center">{d}</div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Bottom Row */}
-                  <div className="flex items-center justify-between bg-blue-500/10 rounded-xl px-4 py-3 border border-blue-500/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-bold text-white/60">12 new bids today</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-blue-400" />
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
+            <HeroVisual />
           </div>
         </div>
       </section>

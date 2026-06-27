@@ -118,7 +118,7 @@ export function Header({ onMenuClick, onToggleNotifications, onProfileClick, onL
                 </div>
                 <div className="p-1.5">
                   <UserMenuItem icon={UserIcon} label="Profile" onClick={() => { onProfileClick(); setShowUserMenu(false); }} />
-                  <UserMenuItem icon={Settings} label="Settings" onClick={() => setShowUserMenu(false)} />
+                  <UserMenuItem icon={Settings} label="Settings" onClick={() => { navigate('/Settings'); setShowUserMenu(false); }} />
                   <UserMenuItem icon={Award} label="Badges & Achievements" onClick={() => setShowUserMenu(false)} />
                 </div>
                 <div className="p-1.5 border-t border-[#E2E8F0]">

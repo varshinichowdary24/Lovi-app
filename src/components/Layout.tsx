@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
+import { ProfileModal } from './ProfileModal';
 import { store } from '../lib/store';
 import { useStore } from '../lib/useStore';
 
@@ -47,6 +48,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <ProfileModal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} />
     </div>
   );
 }
