@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { ProfileModal } from './ProfileModal';
 import { store } from '../lib/store';
 import { useStore } from '../lib/useStore';
 
@@ -35,8 +34,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         onLogoClick={() => navigate('/marketplace')}
         unreadCount={unreadCount}
       />
-
-      <ProfileModal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} />
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
