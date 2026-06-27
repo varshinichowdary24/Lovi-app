@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Search, Briefcase, Bookmark, MapPin, MessageSquare, Bell, Settings, Shield,
-  Zap, ChevronDown, X, ChevronUp, LogOut, User, HelpCircle, Mail, Home, FileText
+  ChevronDown, X, ChevronUp, LogOut, User, HelpCircle, Mail, Home, FileText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../lib/useStore';
@@ -20,11 +20,11 @@ export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarP
   const location = useLocation();
 
   const mainItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { id: 'marketplace', label: 'Marketplace', icon: Search, path: '/marketplace' },
-    { id: 'my-jobs', label: 'My Projects', icon: FolderKanbanIcon, path: '/my-jobs' },
-    { id: 'saved', label: 'Saved Professionals', icon: Bookmark, path: '/saved', roles: ['Client'] },
-    { id: 'nearby', label: 'Nearby Experts', icon: MapPin, path: '/nearby' },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', badge: undefined },
+    { id: 'marketplace', label: 'Marketplace', icon: Search, path: '/marketplace', badge: undefined },
+    { id: 'my-jobs', label: 'My Projects', icon: FolderKanbanIcon, path: '/my-jobs', badge: undefined },
+    { id: 'saved', label: 'Saved Professionals', icon: Bookmark, path: '/saved', roles: ['Client'], badge: undefined },
+    { id: 'nearby', label: 'Nearby Experts', icon: MapPin, path: '/nearby', badge: undefined },
   ];
 
   const supportItems = [
@@ -69,8 +69,8 @@ export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarP
       )}>
         {/* Logo Section */}
         <div className="h-16 flex items-center gap-3 px-5 border-b border-white/5 flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-            <Zap className="w-4 h-4 text-white" fill="currentColor" />
+          <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center shadow-lg shadow-sky-500/20 overflow-hidden">
+            <img src="/Lovi-app/icon.svg" alt="Lovi" className="w-6 h-6" />
           </div>
           <span className="text-lg font-bold text-white tracking-tight">Lovi</span>
           <span className="text-[9px] font-bold text-sky-400 bg-sky-400/10 px-1.5 py-0.5 rounded-full ml-auto border border-sky-400/20">BETA</span>

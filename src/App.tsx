@@ -1720,6 +1720,9 @@ export default function App() {
     setJobToReview(null);
   };
 
+  if (location.pathname === '/') {
+    return <LandingPage onGetStarted={() => navigate('/marketplace')} />;
+  }
   return (
     <Layout>
       {showNotifications && (
@@ -1820,7 +1823,6 @@ export default function App() {
                       />
                     } />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/" element={<LandingPage onGetStarted={() => navigate('/marketplace')} />} />
                     <Route path="/marketplace" element={
                       <Marketplace
                         userLocation={userLocation}
@@ -2428,6 +2430,7 @@ export default function App() {
                         <Button variant="secondary">Account Settings</Button>
                       </div>
                     } />
+                    <Route path="*" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </motion.div>
               } />
