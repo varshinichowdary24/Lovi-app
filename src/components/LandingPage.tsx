@@ -23,6 +23,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { HeroVisual } from './HeroVisual';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -176,92 +177,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </div>
             </motion.div>
 
-            {/* Right - Live Marketplace Feed */}
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="hidden lg:block"
-            >
-              <motion.div
-                animate={{ y: [-8, 8, -8] }}
-                transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
-                className="relative"
-              >
-                <div className="absolute inset-0 bg-blue-500/5 blur-[60px] rounded-3xl" />
-                <div className="relative bg-gradient-to-b from-navy-800/80 to-navy-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl shadow-blue-500/5 rotate-[2deg]">
-                  {/* Feed Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                        <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                      </div>
-                      <span className="text-xs font-bold text-white/40 tracking-wider uppercase">Live Activity</span>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/60 animate-pulse" style={{ animationDelay: '0.3s' }} />
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/30 animate-pulse" style={{ animationDelay: '0.6s' }} />
-                    </div>
-                  </div>
-
-                  {/* Stats Strip */}
-                  <div className="grid grid-cols-3 gap-3 mb-5">
-                    {[
-                      { label: 'Live Jobs', value: '247', icon: Briefcase },
-                      { label: 'Experts', value: '1.8k', icon: Users },
-                      { label: 'Completed', value: '5.3k', icon: CheckCircle2 },
-                    ].map((stat, i) => (
-                      <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/5 text-center">
-                        <stat.icon className="w-3.5 h-3.5 text-blue-400 mx-auto mb-1.5" />
-                        <div className="text-lg font-black text-white">{stat.value}</div>
-                        <div className="text-[9px] font-bold text-white/30 uppercase tracking-wider">{stat.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Feed Items */}
-                  <div className="space-y-3 mb-4">
-                    {[
-                      { job: 'Fan Installation', location: 'Sector 14, Rohini', budget: '₹1,200', status: 'Matching', color: 'text-amber-400' },
-                      { job: 'Pipe Leak Repair', location: 'HBR Layout, BSK', budget: '₹850', status: 'In Progress', color: 'text-blue-400' },
-                      { job: 'Smart Switch Setup', location: 'JP Nagar', budget: '₹2,400', status: 'Completed', color: 'text-emerald-400' },
-                      { job: 'Kitchen Plumbing', location: 'Indiranagar', budget: '₹3,600', status: 'Open', color: 'text-white/40' },
-                    ].map((item, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.6 + i * 0.15 }}
-                        className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3 border border-white/5 group hover:bg-white/10 transition-colors cursor-default"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-white truncate">{item.job}</span>
-                            <span className={cn("text-[9px] font-bold uppercase tracking-wider flex-shrink-0", item.color)}>{item.status}</span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-0.5">
-                            <span className="text-[10px] font-medium text-white/30 flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> {item.location}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-sm font-black text-emerald-400 flex-shrink-0 ml-3">{item.budget}</span>
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  {/* Bottom CTA */}
-                  <div className="flex items-center justify-between bg-blue-500/10 rounded-xl px-4 py-3 border border-blue-500/10">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-bold text-white/60">24 experts available now</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-blue-400" />
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
+            {/* Right - Interactive Visual */}
+            <HeroVisual />
           </div>
         </div>
       </section>
