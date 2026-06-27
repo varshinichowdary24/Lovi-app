@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Search, Briefcase, Bookmark, MapPin, MessageSquare, Bell, Settings, Shield,
-  ChevronDown, X, ChevronUp, LogOut, User, HelpCircle, Mail, Home, FileText
+  LayoutDashboard, Search, Bookmark, MapPin, Shield,
+  ChevronDown, X, ChevronUp, User, HelpCircle, Home, FileText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../lib/useStore';
@@ -15,8 +15,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarProps) {
-  const { currentUser, unreadCount, getUnreadMessageCount } = useStore();
-  const unreadMessages = getUnreadMessageCount();
+  const { currentUser } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,21 +27,15 @@ export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarP
     { id: 'nearby', label: 'Nearby Experts', icon: MapPin, path: '/nearby', badge: undefined },
   ];
 
-  const supportItems = [
-    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/messages', badge: unreadMessages },
-    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/notifications', badge: unreadCount },
-    { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
-  ];
+  const filteredMain = mainItems.filter(item => {
+    if (item.roles) return item.roles.includes(currentUser?.role || '');
+    return true;
+  });
 
   const isActive = (path: string) => {
     if (path === '/dashboard') return location.pathname === '/dashboard';
     return location.pathname.startsWith(path);
   };
-
-  const filteredMain = mainItems.filter(item => {
-    if (item.roles) return item.roles.includes(currentUser?.role || '');
-    return true;
-  });
 
   const navigateTo = (path: string) => {
     navigate(path);
@@ -81,20 +74,6 @@ export function Sidebar({ isOpen, onClose, onRefresh, onProfileClick }: SidebarP
         <div className="flex-1 overflow-y-auto px-3 py-5 space-y-1">
           <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Main</p>
           {filteredMain.map(item => (
-            <SidebarItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              isActive={isActive(item.path)}
-              badge={item.badge}
-              onClick={() => navigateTo(item.path)}
-            />
-          ))}
-
-          <div className="my-4 border-t border-white/5" />
-
-          <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Support</p>
-          {supportItems.map(item => (
             <SidebarItem
               key={item.id}
               icon={item.icon}
