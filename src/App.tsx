@@ -69,6 +69,7 @@ import { MyProjects } from './pages/MyProjects';
 import { Professionals } from './pages/Professionals';
 import { Messages } from './components/Messages';
 import { Analytics } from './pages/Analytics';
+import { Settings as SettingsPage } from './pages/Settings';
 
 const WorkerProfileModal = ({ worker, isOpen, onClose, reviews, users }: {
   worker: User | null;
@@ -2067,16 +2068,7 @@ export default function App() {
                         <Button variant="secondary" onClick={() => navigate('/marketplace')}>Browse Jobs</Button>
                       </div>
                     } />
-                    <Route path="/settings" element={
-                      <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-[#E2E8F0]">
-                        <div className="w-16 h-16 bg-[#F8FAFC] rounded-xl flex items-center justify-center mx-auto mb-5">
-                          <Settings className="w-8 h-8 text-[#CBD5E1]" />
-                        </div>
-                        <h3 className="text-xl font-bold text-[#0F172A]">Settings</h3>
-                        <p className="text-sm text-[#64748B] mt-1 mb-6 max-w-sm mx-auto">Manage your account preferences, notifications, and privacy settings.</p>
-                        <Button variant="secondary">Account Settings</Button>
-                      </div>
-                    } />
+                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </motion.div>

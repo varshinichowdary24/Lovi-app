@@ -85,6 +85,26 @@ class LoviStore {
     this.notify();
   }
 
+  async updateProfile(updates: Partial<Pick<User, 'name' | 'bio' | 'skills' | 'avatar'>>) {
+    if (!this.currentUser) return;
+
+    const dbUpdates: Record<string, any> = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+    if (updates.skills !== undefined) dbUpdates.skills = updates.skills;
+    if (updates.avatar !== undefined) dbUpdates.avatar_url = updates.avatar;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(dbUpdates)
+      .eq('id', this.currentUser.id);
+
+    if (error) throw error;
+
+    this.currentUser = { ...this.currentUser, ...updates };
+    this.notify();
+  }
+
   getJobs() {
     return this.jobs;
   }

@@ -42,5 +42,6 @@ export function useStore() {
     markAllNotificationsRead: store.markAllNotificationsRead.bind(store),
     sendMessage: store.sendMessage.bind(store),
     markMessageRead: store.markMessageRead.bind(store),
+    updateProfile: store.updateProfile.bind(store),
   };
 }
