@@ -73,22 +73,22 @@ export function Messages() {
   };
 
   return (
-    <div className="h-[calc(100vh-180px)] min-h-[500px] bg-navy-800/30 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden flex">
+    <div className="h-[calc(100vh-180px)] min-h-[500px] bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex">
       {/* Contact List */}
       <div className={cn(
-        "w-full md:w-80 lg:w-96 border-r border-white/10 flex flex-col",
+        "w-full md:w-80 lg:w-96 border-r border-gray-100 flex flex-col",
         selectedUserId && "hidden md:flex"
       )}>
-        <div className="p-4 border-b border-white/10">
-          <h2 className="text-lg font-black text-white">Messages</h2>
-          <p className="text-xs text-white/30 font-medium mt-0.5">{sortedPartners.length} conversations</p>
+        <div className="p-4 border-b border-gray-100">
+          <h2 className="text-lg font-black text-gray-900">Messages</h2>
+          <p className="text-xs text-gray-400 font-medium mt-0.5">{sortedPartners.length} conversations</p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {sortedPartners.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <UserIcon className="w-12 h-12 text-white/10 mb-4" />
-              <p className="text-sm font-medium text-white/30">No conversations yet</p>
-              <p className="text-xs text-white/20 mt-1">Messages will appear when you connect with a professional.</p>
+              <UserIcon className="w-12 h-12 text-gray-200 mb-4" />
+              <p className="text-sm font-medium text-gray-400">No conversations yet</p>
+              <p className="text-xs text-gray-300 mt-1">Messages will appear when you connect with a professional.</p>
             </div>
           ) : (
             sortedPartners.map(({ userId, lastMessage, unread }) => {
@@ -98,8 +98,8 @@ export function Messages() {
                   key={userId}
                   onClick={() => setSelectedUserId(userId)}
                   className={cn(
-                    "w-full flex items-start gap-3 p-4 hover:bg-white/5 transition-colors text-left border-b border-white/5",
-                    selectedUserId === userId && "bg-white/5"
+                    "w-full flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors text-left border-b border-gray-50",
+                    selectedUserId === userId && "bg-sky-50"
                   )}
                 >
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-black flex-shrink-0">
@@ -107,12 +107,12 @@ export function Messages() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-bold text-white truncate">{user?.name || 'Unknown'}</span>
-                      <span className="text-[10px] text-white/20 flex-shrink-0">
+                      <span className="text-sm font-bold text-gray-900 truncate">{user?.name || 'Unknown'}</span>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">
                         {new Date(lastMessage.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     </div>
-                    <p className="text-xs text-white/40 truncate mt-0.5">{lastMessage.content}</p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{lastMessage.content}</p>
                   </div>
                   {unread > 0 && (
                     <span className="w-5 h-5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center flex-shrink-0 mt-1">
@@ -134,24 +134,24 @@ export function Messages() {
         {selectedUserId && selectedUser ? (
           <>
             {/* Chat Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-white/10">
+            <div className="flex items-center gap-3 p-4 border-b border-gray-100">
               <button onClick={() => setSelectedUserId(null)} className="md:hidden p-1 -ml-1">
-                <ArrowLeft className="w-5 h-5 text-white/60" />
+                <ArrowLeft className="w-5 h-5 text-gray-400" />
               </button>
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-black">
                 {selectedUser.name?.charAt(0).toUpperCase() || '?'}
               </div>
               <div>
-                <p className="text-sm font-bold text-white">{selectedUser.name}</p>
-                <p className="text-[10px] text-white/30 font-medium">{selectedUser.role}</p>
+                <p className="text-sm font-bold text-gray-900">{selectedUser.name}</p>
+                <p className="text-[10px] text-gray-400 font-medium">{selectedUser.role}</p>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
               {chatMessages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-white/20 font-medium">No messages yet. Say hello!</p>
+                  <p className="text-sm text-gray-400 font-medium">No messages yet. Say hello!</p>
                 </div>
               ) : (
                 chatMessages.map(msg => {
@@ -167,12 +167,12 @@ export function Messages() {
                         "max-w-[75%] px-4 py-2.5 rounded-2xl",
                         isMine
                           ? "bg-blue-500 text-white rounded-br-md"
-                          : "bg-white/10 text-white/80 rounded-bl-md"
+                          : "bg-white text-gray-700 rounded-bl-md border border-gray-100 shadow-sm"
                       )}>
                         <p className="text-sm leading-relaxed">{msg.content}</p>
                         <p className={cn(
                           "text-[10px] mt-1",
-                          isMine ? "text-blue-200" : "text-white/30"
+                          isMine ? "text-blue-200" : "text-gray-400"
                         )}>
                           {new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </p>
@@ -185,14 +185,14 @@ export function Messages() {
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-gray-100">
               <div className="flex items-center gap-3">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Type a message..."
-                  className="flex-1 px-4 py-3 bg-navy-900/50 border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30 transition-all text-sm"
+                  className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30 transition-all text-sm"
                 />
                 <button
                   onClick={handleSend}
@@ -207,9 +207,9 @@ export function Messages() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <UserIcon className="w-16 h-16 text-white/10 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white/40">Select a conversation</h3>
-              <p className="text-sm text-white/20 mt-1">Choose a contact from the left to start chatting.</p>
+              <UserIcon className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-gray-400">Select a conversation</h3>
+              <p className="text-sm text-gray-300 mt-1">Choose a contact from the left to start chatting.</p>
             </div>
           </div>
         )}
